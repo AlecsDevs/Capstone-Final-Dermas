@@ -26,7 +26,7 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
   const location                  = useLocation();
   const { logout }                = useAuth();
   const [showModal, setShowModal] = useState(false);
-  const reportsBasePath           = '/admin/zonal-reports'
+  const reportsBasePath           = role === 'admin' ? '/admin/zonal-reports' : '/staff/zonal-reports'
   const reportsRouteActive        =
     location.pathname === reportsBasePath || location.pathname.startsWith(`${reportsBasePath}/`)
   const [reportsOpen, setReportsOpen] = useState(reportsRouteActive)
@@ -117,9 +117,54 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
       <Link to="/staff/dashboard" className={isActive("/staff/dashboard")} onClick={handleLinkClick}>
         <i className="bi bi-speedometer2"></i> Dashboard
       </Link>
-      <Link to="/staff/reports" className={isActive("/staff/reports")} onClick={handleLinkClick}>
-        <i className="bi bi-file-earmark-text-fill"></i> My Reports
-      </Link>
+
+      <div className="sidebar-dropdown">
+        <div className={`sidebar-dropdown-head${reportsRouteActive ? ' active' : ''}`}>
+          <Link
+            to="/staff/zonal-reports"
+            className={`sidebar-dropdown-link ${isActive('/staff/zonal-reports')}`.trim()}
+            onClick={handleLinkClick}
+          >
+            <i className="bi bi-geo-alt-fill"></i> Manage Reports
+          </Link>
+
+          <button
+            type="button"
+            className={`sidebar-dropdown-toggle${reportsOpen ? ' open' : ''}`}
+            onClick={() => setReportsOpen(prev => !prev)}
+            aria-label="Toggle report zones"
+            aria-expanded={reportsOpen}
+            aria-controls="reports-submenu"
+          >
+            <i className={`bi bi-chevron-down sidebar-dropdown-chevron${reportsOpen ? ' open' : ''}`}></i>
+          </button>
+        </div>
+
+        {reportsOpen && (
+          <div id="reports-submenu" className="sidebar-submenu">
+            <div className="sidebar-zone-list">
+              {REPORT_ZONES.map(zone => {
+                const zonePath = `${reportsBasePath}/${toZoneSlug(zone.name)}`
+                return (
+                  <Link
+                    key={zone.name}
+                    to={zonePath}
+                    className={withActiveClass('sidebar-zone-link', Boolean(isActive(zonePath)))}
+                    style={{ '--zone-color': zone.color } as Record<string, string>}
+                    onClick={handleLinkClick}
+                  >
+                    <span className="sidebar-zone-icon">
+                      <i className="bi bi-folder-fill"></i>
+                    </span>
+                    <span className="sidebar-zone-name">{zone.name}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
       <Link to="/staff/documents" className={isActive("/staff/documents")} onClick={handleLinkClick}>
         <i className="bi bi-folder-fill"></i> Documents
       </Link>

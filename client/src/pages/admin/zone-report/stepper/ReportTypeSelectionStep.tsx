@@ -1,4 +1,4 @@
-type ReportKind = 'emergency' | 'incident' | null
+import type { ReportKind } from '../../../../types/zoneReport'
 
 interface ReportTypeSelectionStepProps {
   reportKind: ReportKind

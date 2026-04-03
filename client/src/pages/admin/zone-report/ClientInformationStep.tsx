@@ -1,4 +1,4 @@
-import type { PersonInfo } from './types'
+import type { PersonInfo } from '../../../types/zoneReport'
 
 interface ClientInformationStepProps {
   people: PersonInfo[]

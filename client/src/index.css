@@ -1,1 +1,97 @@
-body { font-family: 'Poppins', sans-serif; margin: 0; padding: 0; overflow-x: hidden; background: #f8fafc; }
+:root {
+	--app-bg: #f8fafc;
+	--app-text: #0f172a;
+	--app-surface: #ffffff;
+	--app-border: #dbe3ea;
+	--app-muted: #64748b;
+}
+
+html,
+body,
+#root {
+	min-height: 100%;
+}
+
+body {
+	font-family: 'Poppins', sans-serif;
+	margin: 0;
+	padding: 0;
+	overflow-x: hidden;
+	background: var(--app-bg);
+	color: var(--app-text);
+}
+
+html.dark {
+	color-scheme: dark;
+	--app-bg: #0b1220;
+	--app-text: #e2e8f0;
+	--app-surface: #111827;
+	--app-border: #334155;
+	--app-muted: #94a3b8;
+}
+
+html.dark body {
+	background: var(--app-bg);
+	color: var(--app-text);
+}
+
+html.dark .card,
+html.dark .table,
+html.dark .table-responsive,
+html.dark .modal-content,
+html.dark .dropdown-menu,
+html.dark .list-group-item,
+html.dark .offcanvas,
+html.dark .accordion-item,
+html.dark .popover {
+	background-color: var(--app-surface);
+	color: var(--app-text);
+	border-color: var(--app-border);
+}
+
+html.dark .table {
+	--bs-table-bg: var(--app-surface);
+	--bs-table-striped-bg: #172235;
+	--bs-table-hover-bg: #1b2940;
+	--bs-table-color: var(--app-text);
+	--bs-table-border-color: var(--app-border);
+}
+
+html.dark .table thead th {
+	color: #cbd5e1;
+}
+
+html.dark .form-control,
+html.dark .form-select,
+html.dark input,
+html.dark textarea,
+html.dark select {
+	background-color: #0f172a;
+	color: var(--app-text);
+	border-color: var(--app-border);
+}
+
+html.dark .form-control::placeholder,
+html.dark textarea::placeholder,
+html.dark input::placeholder {
+	color: var(--app-muted);
+}
+
+html.dark .form-control:focus,
+html.dark .form-select:focus,
+html.dark input:focus,
+html.dark textarea:focus,
+html.dark select:focus {
+	border-color: #22c55e;
+	box-shadow: 0 0 0 0.2rem rgba(34, 197, 94, 0.18);
+}
+
+html.dark .text-muted,
+html.dark .small,
+html.dark small {
+	color: var(--app-muted) !important;
+}
+
+html.dark .btn-close {
+	filter: invert(1) grayscale(100%);
+}

@@ -1,12 +1,8 @@
-import { Stepper } from '../../../components/Stepper'
-
-interface Step {
-  id: number
-  label: string
-}
+import { Stepper } from '../../../../components/Stepper'
+import type { StepItem } from '../../../../types/zoneReport'
 
 interface ZoneReportStepperProps {
-  steps: Step[]
+  steps: StepItem[]
   currentStep: number
 }
 

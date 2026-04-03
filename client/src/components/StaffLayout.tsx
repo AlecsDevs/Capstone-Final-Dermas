@@ -8,7 +8,10 @@ import { useSessionWatch } from '../hooks/useSessionWatch'
 export const StaffLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    return localStorage.getItem('darkMode') === 'true'
+    const stored = localStorage.getItem('darkMode')
+    if (stored === 'true') return true
+    if (stored === 'false') return false
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
   const { otherDeviceJoined, dismiss } = useSessionWatch()
 

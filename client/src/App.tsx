@@ -10,7 +10,7 @@ import { Dashboard } from './pages/admin/Dashboard'
 import Management_Report from './pages/admin/Management_Report.tsx'
 import Zone_Report from './pages/admin/Zone_Report.tsx'
 import UserManagement from './pages/admin/UserManagement.tsx'
-import StaffDashboard from './pages/staff/StaffDashboard'
+import DocumentsPage from './pages/DocumentsPage'
 
 function App() {
   return (
@@ -28,7 +28,7 @@ function App() {
             <Route path='zonal-reports'   element={<Management_Report />} />
             <Route path='zonal-reports/:zoneSlug' element={<Zone_Report />} />
             <Route path='user-management' element={<UserManagement />} />
-            <Route path='documents'       element={<h1>Documents</h1>} />
+            <Route path='documents'       element={<DocumentsPage />} />
           </Route>
         </Route>
 
@@ -36,9 +36,11 @@ function App() {
         <Route element={<ProtectedRoute allowedRoles={['staff']} />}>
           <Route path='/staff' element={<StaffLayout />}>
             <Route index element={<Navigate to='dashboard' replace />} />
-            <Route path='dashboard' element={<StaffDashboard />} />
-            <Route path='reports'   element={<h1>My Reports</h1>} />
-            <Route path='documents' element={<h1>Documents</h1>} />
+            <Route path='dashboard' element={<Dashboard />} />
+            <Route path='zonal-reports' element={<Management_Report />} />
+            <Route path='zonal-reports/:zoneSlug' element={<Zone_Report />} />
+            <Route path='reports'   element={<Navigate to='/staff/zonal-reports' replace />} />
+            <Route path='documents' element={<DocumentsPage />} />
           </Route>
         </Route>
 

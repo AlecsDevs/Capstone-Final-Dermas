@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -30,5 +31,20 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
         ];
+    }
+
+    public function responders(): HasMany
+    {
+        return $this->hasMany(Responder::class, 'user_id');
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(Document::class, 'uploaded_by');
+    }
+
+    public function reportNotifications(): HasMany
+    {
+        return $this->hasMany(ReportNotification::class, 'user_id');
     }
 }

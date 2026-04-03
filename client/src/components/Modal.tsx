@@ -1,13 +1,13 @@
-import React from 'react'
+import type { ReactNode } from 'react'
 
 interface ModalProps {
     open: boolean
     close: () => void
-    children: React.ReactNode
+    children: ReactNode
 }
 
 
-export const Modal =({children,open,close}:ModalProps) => {
+export const Modal =({children,open,close: _close}:ModalProps) => {
     if (!open) return null;
     return (
         <div>

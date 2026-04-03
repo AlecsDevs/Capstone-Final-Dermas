@@ -316,16 +316,7 @@ export default function UserManagement() {
       phone_number: editUserForm.phone.trim() || null,
     }
 
-    try {
-      await api.patch(`/users/${selectedActionUser.id}`, payload)
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Failed to save profile changes.'
-      setFormError(msg)
-      return
-    }
-
+    const previousUserSnapshot = { ...selectedActionUser }
     const updatedUser = {
       ...selectedActionUser,
       username: editUserForm.username.trim(),
@@ -335,6 +326,17 @@ export default function UserManagement() {
     }
 
     setUsers((prev) => prev.map((user) => (user.id === selectedActionUser.id ? updatedUser : user)))
+
+    try {
+      await api.patch(`/users/${selectedActionUser.id}`, payload)
+    } catch (err: unknown) {
+      setUsers((prev) => prev.map((user) => (user.id === selectedActionUser.id ? previousUserSnapshot : user)))
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Failed to save profile changes.'
+      setFormError(msg)
+      return
+    }
 
     addUserLog(selectedActionUser.id, 'Profile information edited by admin')
     setFormError('')
@@ -407,16 +409,19 @@ export default function UserManagement() {
 
   const handleToggleStatus = async (user: UserRow) => {
     const nextStatus: UserRow['status'] = user.status === 'Active' ? 'Inactive' : 'Active'
+    const previousStatus = user.status
+
+    setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, status: nextStatus } : item)))
+
     try {
       await api.patch(`/users/${user.id}/status`, {
         status: nextStatus === 'Active' ? 'active' : 'inactive',
       })
     } catch {
+      setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, status: previousStatus } : item)))
       setFormError('Failed to update account status.')
       return
     }
-
-    setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, status: nextStatus } : item)))
     addUserLog(user.id, `Account set to ${nextStatus}`)
 
     if (nextStatus === 'Inactive') {
@@ -435,19 +440,24 @@ export default function UserManagement() {
     const confirmed = window.confirm(`Delete ${user.username}? This action cannot be undone.`)
     if (!confirmed) return
 
-    try {
-      await api.delete(`/users/${user.id}`)
-    } catch {
-      setFormError('Failed to delete user from server.')
-      return
-    }
-
+    const previousUsers = users
+    const previousLogs = userLogs
     setUsers((prev) => prev.filter((item) => item.id !== user.id))
     setUserLogs((prev) => {
       const clone = { ...prev }
       delete clone[user.id]
       return clone
     })
+
+    try {
+      await api.delete(`/users/${user.id}`)
+    } catch {
+      setUsers(previousUsers)
+      setUserLogs(previousLogs)
+      setFormError('Failed to delete user from server.')
+      return
+    }
+
     if (selectedActionUserId === user.id) {
       closeActionModal()
     }
