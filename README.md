@@ -1,12 +1,12 @@
-# Capstone Final Dermas
+# Capstone Final Dermas (Localhost Setup Only)
 
-Unified repository containing:
-- `client` (React + Vite frontend)
-- `web-server` (Laravel API/backend)
+This repository has two parts:
+- client (React + Vite)
+- web-server (Laravel API)
 
-This guide shows exactly how to install, configure, run, and deploy both parts.
+This guide is only for localhost setup. No deployment steps are included.
 
-## 1) Prerequisites
+## 1. Requirements
 
 Install these first:
 - Node.js 20+
@@ -16,27 +16,45 @@ Install these first:
 - MySQL 8+
 - Git
 
-## 2) Clone Repository
+## 2. Clone the Repository
 
 ```bash
 git clone https://github.com/AlecsDevs/Capstone-Final-Dermas.git
 cd Capstone-Final-Dermas
 ```
 
-## 3) Backend Setup (Laravel)
+## 3. Setup Backend (Laravel)
 
 Open terminal 1:
 
 ```bash
 cd web-server
 composer install
+```
+
+Create env file:
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Mac/Linux:
+
+```bash
 cp .env.example .env
+```
+
+Generate app key:
+
+```bash
 php artisan key:generate
 ```
 
-### 3.1 Configure Database in .env
+## 4. Configure Database
 
-Edit `web-server/.env`:
+Edit web-server/.env and set:
 
 ```env
 APP_NAME="MDRRMO"
@@ -52,7 +70,7 @@ DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-Create the database in MySQL:
+Create database in MySQL:
 
 ```sql
 CREATE DATABASE web_server;
@@ -64,163 +82,103 @@ Run migrations and seeders:
 php artisan migrate --seed
 ```
 
-If your app uses Laravel storage links for files/documents:
+Create storage link:
 
 ```bash
 php artisan storage:link
 ```
 
-Start backend server:
+Run backend:
 
 ```bash
 php artisan serve
 ```
 
-Backend runs at:
-- `http://127.0.0.1:8000`
+Backend URL:
+- http://127.0.0.1:8000
 
-## 4) Frontend Setup (React + Vite)
+## 5. Setup Frontend (React)
 
 Open terminal 2:
 
 ```bash
 cd client
 npm install
+```
+
+Create env file:
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Mac/Linux:
+
+```bash
 cp .env.example .env
 ```
 
-Edit `client/.env` if needed:
+Set API URL in client/.env:
 
 ```env
 VITE_API_URL=http://127.0.0.1:8000
 ```
 
-Start frontend:
+Run frontend:
 
 ```bash
 npm run dev
 ```
 
-Frontend runs at:
-- `http://127.0.0.1:5173`
+Frontend URL:
+- http://127.0.0.1:5173
 
-## 5) Daily Development Commands
+## 6. Daily Run Commands
 
-### Backend
+Backend:
 
 ```bash
 cd web-server
 php artisan serve
 ```
 
-### Frontend
+Frontend:
 
 ```bash
 cd client
 npm run dev
 ```
 
-## 6) Build Commands
+## 7. Localhost Troubleshooting
 
-### Frontend production build
-
-```bash
-cd client
-npm run build
-```
-
-### Laravel optimize (optional for production)
-
-```bash
-cd web-server
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-```
-
-## 7) Push Your Code to GitHub
-
-From repository root (`Capstone-Final-Dermas`):
-
-```bash
-git add .
-git commit -m "docs: add full setup and run guide"
-git push origin main
-```
-
-If this is your first push from this machine:
-
-```bash
-git remote -v
-```
-
-If no origin exists:
-
-```bash
-git remote add origin https://github.com/AlecsDevs/Capstone-Final-Dermas.git
-git branch -M main
-git push -u origin main
-```
-
-## 8) Production Procedure (DigitalOcean + Nginx)
-
-1. Pull latest code on server:
-
-```bash
-cd /var/www/Capstone-Final-Dermas
-git pull origin main
-```
-
-2. Install/update backend dependencies:
-
-```bash
-cd web-server
-composer install --no-dev --optimize-autoloader
-php artisan migrate --force
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-```
-
-3. Build frontend:
-
-```bash
-cd ../client
-npm ci
-npm run build
-```
-
-4. Serve frontend `client/dist` with Nginx and proxy API requests to Laravel public entrypoint.
-
-5. Restart services:
-
-```bash
-sudo systemctl restart php8.2-fpm
-sudo systemctl reload nginx
-```
-
-## 9) Common Fixes
-
-### CORS error
-- Check `web-server/config/cors.php`
-- Ensure frontend URL is allowed
-
-### 419/CSRF or auth issues
-- Confirm `APP_URL` and frontend `VITE_API_URL`
-- Clear Laravel caches:
+If backend changes are not reflecting:
 
 ```bash
 cd web-server
 php artisan optimize:clear
 ```
 
-### Missing file/image from storage
+If files/images are missing:
 
 ```bash
 cd web-server
 php artisan storage:link
 ```
 
----
+If frontend cannot connect to backend:
+- Check client/.env has VITE_API_URL=http://127.0.0.1:8000
+- Check backend is running on port 8000
+
+## 8. Push to GitHub
+
+From project root:
+
+```bash
+git add .
+git commit -m "docs: update localhost setup guide"
+git push origin main
+```
 
 Maintainer: Alecs
