@@ -9,6 +9,7 @@ interface ModalProps {
 
 export const Modal =({children,open,close: _close}:ModalProps) => {
     if (!open) return null;
+    void _close
     return (
         <div>
             

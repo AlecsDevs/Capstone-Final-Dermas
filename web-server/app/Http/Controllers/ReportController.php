@@ -553,18 +553,9 @@ class ReportController extends Controller
             $issues[] = 'At least one responder is required.';
         }
 
-        if ($report->photos()->count() < 1) {
-            $issues[] = 'At least one report photo is required.';
-        }
-
         if ($report->report_type === 'Emergency') {
             if (!$report->emergencyDetails) {
                 $issues[] = 'Emergency incident details are required.';
-            }
-
-            $primaryClient = $report->clients()->orderBy('id')->first();
-            if ($primaryClient && !$primaryClient->assessment) {
-                $issues[] = 'Assessment and care details are required for the primary client.';
             }
         }
 

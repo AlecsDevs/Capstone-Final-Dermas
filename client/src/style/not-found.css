@@ -1,0 +1,102 @@
+.nf-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    linear-gradient(145deg, rgba(20, 184, 166, 0.15) 0%, transparent 36%),
+    linear-gradient(305deg, rgba(59, 130, 246, 0.12) 0%, transparent 32%),
+    #eef3f8;
+}
+
+.nf-card {
+  width: min(560px, 100%);
+  border: 1px solid #c8d8df;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  padding: 2rem 1.2rem;
+  text-align: center;
+}
+
+.nf-logo {
+  width: 76px;
+  height: 76px;
+  border-radius: 999px;
+  border: 2px solid #d7e4ea;
+  background: #fff;
+  margin-bottom: 0.9rem;
+}
+
+.nf-code {
+  margin: 0;
+  color: #0f766e;
+  font-size: 2.4rem;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.nf-title {
+  margin: 0.45rem 0 0;
+  color: #10394f;
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+
+.nf-text {
+  margin: 0.7rem auto 1.4rem;
+  color: #4a6778;
+  max-width: 42ch;
+}
+
+.nf-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.nf-btn {
+  text-decoration: none;
+  padding: 0.62rem 1rem;
+  border-radius: 10px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.nf-btn-primary {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+}
+
+.nf-btn-primary:hover {
+  color: #fff;
+  background: #0c5f59;
+}
+
+.nf-btn-secondary {
+  background: #fff;
+  border-color: #9fb4c0;
+  color: #214458;
+}
+
+.nf-btn-secondary:hover {
+  color: #18384a;
+  background: #f4f8fb;
+}
+
+@media (max-width: 575.98px) {
+  .nf-card {
+    padding: 1.5rem 1rem;
+  }
+
+  .nf-code {
+    font-size: 2rem;
+  }
+
+  .nf-title {
+    font-size: 1.4rem;
+  }
+}

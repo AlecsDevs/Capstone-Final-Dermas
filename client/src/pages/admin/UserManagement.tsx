@@ -525,7 +525,7 @@ export default function UserManagement() {
         {loadingUsers && <p className="text-muted small mx-3 mt-2 mb-0">Loading users...</p>}
 
         <div className="table-responsive">
-          <table className="table um-table align-middle mb-0">
+          <table className="table um-table um-table-mobile-cards align-middle mb-0">
             <thead>
               <tr>
                 <th>Username</th>
@@ -547,12 +547,12 @@ export default function UserManagement() {
               ) : (
                 staffUsers.map((user) => (
                   <tr key={user.id}>
-                    <td>{user.username}</td>
-                    <td>{user.email}</td>
-                    <td>{user.address || '-'}</td>
-                    <td>{user.phone || '-'}</td>
-                    <td>{formatDate(user.dateAdded)}</td>
-                    <td>
+                    <td data-label="Username">{user.username}</td>
+                    <td data-label="Email">{user.email}</td>
+                    <td data-label="Address">{user.address || '-'}</td>
+                    <td data-label="Phone">{user.phone || '-'}</td>
+                    <td data-label="Date Added">{formatDate(user.dateAdded)}</td>
+                    <td data-label="Status">
                       <span
                         className={
                           user.status === 'Active' ? 'um-status um-status-active' : 'um-status um-status-inactive'
@@ -561,10 +561,11 @@ export default function UserManagement() {
                         {user.status}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Actions" className="um-actions-cell">
                       <div className="um-table-actions">
                         <button type="button" className="um-settings-btn" onClick={() => openActionModal(user.id)}>
                           <i className="bi bi-gear-fill" />
+                          <span className="um-settings-label">Manage</span>
                         </button>
                       </div>
                     </td>
@@ -594,7 +595,7 @@ export default function UserManagement() {
         </div>
 
         <div className="table-responsive">
-          <table className="table um-table align-middle mb-0">
+          <table className="table um-table um-table-mobile-cards align-middle mb-0">
             <thead>
               <tr>
                 <th>Username</th>
@@ -616,12 +617,12 @@ export default function UserManagement() {
               ) : (
                 adminUsers.map((user) => (
                   <tr key={user.id}>
-                    <td>{user.username}</td>
-                    <td>{user.email}</td>
-                    <td>{user.address || '-'}</td>
-                    <td>{user.phone || '-'}</td>
-                    <td>{formatDate(user.dateAdded)}</td>
-                    <td>
+                    <td data-label="Username">{user.username}</td>
+                    <td data-label="Email">{user.email}</td>
+                    <td data-label="Address">{user.address || '-'}</td>
+                    <td data-label="Phone">{user.phone || '-'}</td>
+                    <td data-label="Date Added">{formatDate(user.dateAdded)}</td>
+                    <td data-label="Status">
                       <span
                         className={
                           user.status === 'Active' ? 'um-status um-status-active' : 'um-status um-status-inactive'
@@ -630,10 +631,11 @@ export default function UserManagement() {
                         {user.status}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Actions" className="um-actions-cell">
                       <div className="um-table-actions">
                         <button type="button" className="um-settings-btn" onClick={() => openActionModal(user.id)}>
                           <i className="bi bi-gear-fill" />
+                          <span className="um-settings-label">Manage</span>
                         </button>
                       </div>
                     </td>
@@ -717,6 +719,11 @@ export default function UserManagement() {
                   type={showPassword.staffPassword ? 'text' : 'password'}
                   value={staffForm.password}
                   onChange={(event) => updateFormField('password', event.target.value)}
+                  autoComplete="new-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  inputMode="text"
+                  spellCheck={false}
                 />
                 <button
                   type="button"
@@ -739,6 +746,11 @@ export default function UserManagement() {
                   type={showPassword.staffConfirmPassword ? 'text' : 'password'}
                   value={staffForm.confirmPassword}
                   onChange={(event) => updateFormField('confirmPassword', event.target.value)}
+                  autoComplete="new-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  inputMode="text"
+                  spellCheck={false}
                 />
                 <button
                   type="button"
@@ -900,6 +912,11 @@ export default function UserManagement() {
                           value={passwordForm.currentPassword}
                           onChange={(event) => updatePasswordField('currentPassword', event.target.value)}
                           required
+                          autoComplete="current-password"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          inputMode="text"
+                          spellCheck={false}
                         />
                         <button
                           type="button"
@@ -922,6 +939,11 @@ export default function UserManagement() {
                             value={passwordForm.newPassword}
                             onChange={(event) => updatePasswordField('newPassword', event.target.value)}
                             required
+                            autoComplete="new-password"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            inputMode="text"
+                            spellCheck={false}
                           />
                           <button
                             type="button"
@@ -943,6 +965,11 @@ export default function UserManagement() {
                             value={passwordForm.confirmPassword}
                             onChange={(event) => updatePasswordField('confirmPassword', event.target.value)}
                             required
+                            autoComplete="new-password"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            inputMode="text"
+                            spellCheck={false}
                           />
                           <button
                             type="button"

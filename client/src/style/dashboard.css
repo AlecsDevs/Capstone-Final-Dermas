@@ -275,6 +275,19 @@ html.dark .db-zone-card h4 {
   color: #e2e8f0;
 }
 
+html.dark .db-panel p,
+html.dark .db-panel span,
+html.dark .db-panel strong,
+html.dark .db-table tbody td,
+html.dark .db-panel .text-muted,
+.dark-mode .db-panel p,
+.dark-mode .db-panel span,
+.dark-mode .db-panel strong,
+.dark-mode .db-table tbody td,
+.dark-mode .db-panel .text-muted {
+  color: #cbd5e1 !important;
+}
+
 html.dark .db-tabs {
   border-color: #334155;
 }

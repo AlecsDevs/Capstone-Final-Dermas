@@ -3,6 +3,10 @@ import axios from 'axios'
 const TOKEN_KEY = 'token'
 const REMEMBER_TOKEN_KEY = 'remember_token'
 const DEVICE_NAME_KEY = 'device_name'
+const RAW_API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '')
+const API_BASE_URL = RAW_API_BASE_URL
+  ? (/^https?:\/\/[^/]+$/i.test(RAW_API_BASE_URL) ? `${RAW_API_BASE_URL}/api` : RAW_API_BASE_URL)
+  : '/api'
 
 const getDeviceName = () => {
   const ua = navigator.userAgent.toLowerCase()
@@ -42,7 +46,7 @@ const clearStoredToken = () => {
 }
 
 const api = axios.create({
-  baseURL : 'http://localhost:8000/api',
+  baseURL : API_BASE_URL,
   headers : {
     'Content-Type' : 'application/json',
     'Accept'       : 'application/json',

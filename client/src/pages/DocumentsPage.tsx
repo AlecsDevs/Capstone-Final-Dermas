@@ -54,12 +54,21 @@ const formatTypeLabel = (type: DocumentTypeFilter): string => {
   return 'Unknown'
 }
 
+const encodePathSegments = (value: string) => value.split('/').map(segment => encodeURIComponent(segment)).join('/')
+
 const getFileUrl = (filePath: string): string => {
   if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
     return filePath
   }
 
   const base = (api.defaults.baseURL ?? '').replace(/\/api\/?$/, '')
+  const apiBase = (api.defaults.baseURL ?? '').replace(/\/$/, '')
+
+  const storageRelative = filePath.replace(/^\/?storage\//, '')
+  if (storageRelative !== filePath && apiBase) {
+    return `${apiBase}/files/public/${encodePathSegments(storageRelative)}`
+  }
+
   if (!base) {
     return filePath
   }

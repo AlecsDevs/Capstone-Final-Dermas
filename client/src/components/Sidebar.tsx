@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import adminAvatar from "../assets/Mdrrmo_logo.png";
 import { useAuth } from "../context/AuthContext";
@@ -30,18 +30,13 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
   const reportsRouteActive        =
     location.pathname === reportsBasePath || location.pathname.startsWith(`${reportsBasePath}/`)
   const [reportsOpen, setReportsOpen] = useState(reportsRouteActive)
+  const reportsExpanded = reportsOpen || reportsRouteActive
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(`${path}/`) ? "active" : "";
 
   const withActiveClass = (baseClass: string, active: boolean) =>
     active ? `${baseClass} active` : baseClass
-
-  useEffect(() => {
-    if (reportsRouteActive) {
-      setReportsOpen(true)
-    }
-  }, [reportsRouteActive])
 
   const handleLinkClick = () => onClose?.();
 
@@ -71,14 +66,14 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
             className={`sidebar-dropdown-toggle${reportsOpen ? ' open' : ''}`}
             onClick={() => setReportsOpen(prev => !prev)}
             aria-label="Toggle report zones"
-            aria-expanded={reportsOpen}
+            aria-expanded={reportsExpanded}
             aria-controls="reports-submenu"
           >
-            <i className={`bi bi-chevron-down sidebar-dropdown-chevron${reportsOpen ? ' open' : ''}`}></i>
+            <i className={`bi bi-chevron-down sidebar-dropdown-chevron${reportsExpanded ? ' open' : ''}`}></i>
           </button>
         </div>
 
-        {reportsOpen && (
+        {reportsExpanded && (
           <div id="reports-submenu" className="sidebar-submenu">
             <div className="sidebar-zone-list">
               {REPORT_ZONES.map(zone => {
@@ -133,14 +128,14 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
             className={`sidebar-dropdown-toggle${reportsOpen ? ' open' : ''}`}
             onClick={() => setReportsOpen(prev => !prev)}
             aria-label="Toggle report zones"
-            aria-expanded={reportsOpen}
+            aria-expanded={reportsExpanded}
             aria-controls="reports-submenu"
           >
-            <i className={`bi bi-chevron-down sidebar-dropdown-chevron${reportsOpen ? ' open' : ''}`}></i>
+            <i className={`bi bi-chevron-down sidebar-dropdown-chevron${reportsExpanded ? ' open' : ''}`}></i>
           </button>
         </div>
 
-        {reportsOpen && (
+        {reportsExpanded && (
           <div id="reports-submenu" className="sidebar-submenu">
             <div className="sidebar-zone-list">
               {REPORT_ZONES.map(zone => {

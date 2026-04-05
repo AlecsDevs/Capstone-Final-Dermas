@@ -8,9 +8,16 @@ import { useAuth } from '../context/AuthContext'
 export default function LoginPage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    const stored = localStorage.getItem('darkMode')
+    if (stored === 'true') return true
+    if (stored === 'false') return false
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
   const [deactivatedModalOpen, setDeactivatedModalOpen] = useState(false)
@@ -18,6 +25,15 @@ export default function LoginPage() {
   const [logoutEmail, setLogoutEmail] = useState('')
   const [logoutReason, setLogoutReason] = useState<'sessions-logged-out' | 'password-changed' | 'account-changed'>('sessions-logged-out')
   const { login, user, loading: authLoading } = useAuth()
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+    localStorage.setItem('darkMode', String(darkMode))
+  }, [darkMode])
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
@@ -64,6 +80,16 @@ export default function LoginPage() {
 
   return (
     <div className="login-page d-flex vh-100 w-100 m-0">
+      <button
+        type="button"
+        className="login-theme-toggle"
+        onClick={() => setDarkMode((prev) => !prev)}
+        aria-label="Toggle dark mode"
+        title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        <i className={`bi ${darkMode ? 'bi-sun' : 'bi-moon'}`} />
+      </button>
+
       {/* Left panel */}
       <div className="left-container d-flex align-items-center justify-content-center">
         <video className="left-bg-video" autoPlay muted loop playsInline>
@@ -86,8 +112,8 @@ export default function LoginPage() {
         <div className="login-form">
           <div className="text-center mb-4">
             <img src={avatarImg} alt="Avatar"   className="img-fluid rounded-circle mb-3 w-30" />
-            <h2 className="h4 text-dark mb-1 fw-semibold">Welcome Back</h2>
-            <p className="text-muted small">Please sign in to your account</p>
+            <h2 className="h4 login-title mb-1 fw-semibold">Welcome Back</h2>
+            <p className="login-subtitle small">Please sign in to your account</p>
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -96,6 +122,8 @@ export default function LoginPage() {
                 <i className="bi bi-person-fill" />
               </span>
               <input
+                id="login-username"
+                name="username"
                 type="text"
                 className="form-control"
                 placeholder="Enter your username"
@@ -103,6 +131,12 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoFocus
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                inputMode="text"
+                enterKeyHint="next"
+                spellCheck={false}
               />
             </div>
 
@@ -111,13 +145,30 @@ export default function LoginPage() {
                 <i className="bi bi-lock-fill" />
               </span>
               <input
-                type="password"
+                id="login-password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
                 className="form-control"
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                inputMode="text"
+                enterKeyHint="go"
+                spellCheck={false}
               />
+              <button
+                type="button"
+                className="btn login-password-toggle"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <i className={`bi ${showPassword ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`} />
+              </button>
             </div>
 
             {error && (
@@ -130,7 +181,6 @@ export default function LoginPage() {
             <div className="d-flex justify-content-between align-items-center mb-4">
               <div className="form-check">
                 <input
-                  disabled={loading}
                   className="form-check-input"
                   type="checkbox"
                   id="rememberMe"

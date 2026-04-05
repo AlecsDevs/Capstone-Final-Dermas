@@ -6,6 +6,7 @@ interface EmergencyIncidentDetailsStepProps {
   incidentTime: string
   dispatchOfficer: string
   responders: string[]
+  errors?: Record<string, string>
   onChange: (key: string, value: string) => void
   onChangeResponder: (index: number, value: string) => void
   onAddResponder: () => void
@@ -20,6 +21,7 @@ export function EmergencyIncidentDetailsStep({
   incidentTime,
   dispatchOfficer,
   responders,
+  errors = {},
   onChange,
   onChangeResponder,
   onAddResponder,
@@ -44,12 +46,13 @@ export function EmergencyIncidentDetailsStep({
                   <input
                     type="text"
                     id="emMechanism"
-                    className="form-control zr-step-input"
+                    className={`form-control zr-step-input${errors.mechanism ? ' is-invalid' : ''}`}
                     value={mechanism}
                     onChange={e => onChange('mechanism', e.target.value)}
                     placeholder="Mechanism of Injury / Illness"
                   />
                   <label htmlFor="emMechanism">Mechanism of Injury / Illness</label>
+                  {errors.mechanism && <div className="zr-field-error">{errors.mechanism}</div>}
                 </div>
               </div>
               <div className="col-12 col-md-6">
@@ -57,12 +60,13 @@ export function EmergencyIncidentDetailsStep({
                   <input
                     type="text"
                     id="emNatureIllness"
-                    className="form-control zr-step-input"
+                    className={`form-control zr-step-input${errors.natureIllness ? ' is-invalid' : ''}`}
                     value={natureIllness}
                     onChange={e => onChange('natureIllness', e.target.value)}
                     placeholder="Nature of Illness"
                   />
                   <label htmlFor="emNatureIllness">Nature of Illness</label>
+                  {errors.natureIllness && <div className="zr-field-error">{errors.natureIllness}</div>}
                 </div>
               </div>
             </div>
@@ -72,7 +76,7 @@ export function EmergencyIncidentDetailsStep({
                 <div className="form-floating">
                   <select
                     id="emTypeEmergency"
-                    className="form-select zr-step-input"
+                    className={`form-select zr-step-input${errors.typeEmergency ? ' is-invalid' : ''}`}
                     value={typeEmergency}
                     onChange={e => onChange('typeEmergency', e.target.value)}
                   >
@@ -83,6 +87,7 @@ export function EmergencyIncidentDetailsStep({
                     <option value="Trauma">Trauma</option>
                   </select>
                   <label htmlFor="emTypeEmergency">Type of Emergency</label>
+                  {errors.typeEmergency && <div className="zr-field-error">{errors.typeEmergency}</div>}
                 </div>
               </div>
             </div>
@@ -93,12 +98,13 @@ export function EmergencyIncidentDetailsStep({
                   <input
                     type="date"
                     id="emIncidentDate"
-                    className="form-control zr-step-input"
+                    className={`form-control zr-step-input${errors.incidentDate ? ' is-invalid' : ''}`}
                     value={incidentDate}
                     onChange={e => onChange('incidentDate', e.target.value)}
                     placeholder="Date of Incident"
                   />
                   <label htmlFor="emIncidentDate">Date of Incident</label>
+                  {errors.incidentDate && <div className="zr-field-error">{errors.incidentDate}</div>}
                 </div>
               </div>
               <div className="col-12 col-md-6">
@@ -106,12 +112,13 @@ export function EmergencyIncidentDetailsStep({
                   <input
                     type="time"
                     id="emIncidentTime"
-                    className="form-control zr-step-input"
+                    className={`form-control zr-step-input${errors.incidentTime ? ' is-invalid' : ''}`}
                     value={incidentTime}
                     onChange={e => onChange('incidentTime', e.target.value)}
                     placeholder="Time of Incident"
                   />
                   <label htmlFor="emIncidentTime">Time of Incident</label>
+                  {errors.incidentTime && <div className="zr-field-error">{errors.incidentTime}</div>}
                 </div>
               </div>
             </div>
@@ -121,7 +128,7 @@ export function EmergencyIncidentDetailsStep({
                 <div className="form-floating">
                   <select
                     id="emDispatch"
-                    className="form-select zr-step-input"
+                    className={`form-select zr-step-input${errors.dispatchOfficer ? ' is-invalid' : ''}`}
                     value={dispatchOfficer}
                     onChange={e => onChange('dispatchOfficer', e.target.value)}
                   >
@@ -133,6 +140,7 @@ export function EmergencyIncidentDetailsStep({
                     <option value="Pastor">Pastor</option>
                   </select>
                   <label htmlFor="emDispatch">Dispatch Officer</label>
+                  {errors.dispatchOfficer && <div className="zr-field-error">{errors.dispatchOfficer}</div>}
                 </div>
               </div>
             </div>
@@ -168,6 +176,8 @@ export function EmergencyIncidentDetailsStep({
                 </div>
               ))}
             </div>
+
+            {errors.responders && <div className="zr-field-error mt-1">{errors.responders}</div>}
 
             <button type="button" className="btn btn-add-responder mt-2" onClick={onAddResponder}>
               <i className="bi bi-person-plus-fill me-1"></i>

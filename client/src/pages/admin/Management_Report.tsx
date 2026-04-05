@@ -437,7 +437,7 @@ export const Management_Report = () => {
           {/* Table */}
           <div className="table-responsive">
             {results.length > 0 ? (
-              <table className="table mr-table align-middle mb-0">
+              <table className="table mr-table mr-table-mobile-cards align-middle mb-0">
                 <thead>
                   <tr>
                     <th>Date</th>
@@ -451,10 +451,10 @@ export const Management_Report = () => {
                 <tbody>
                   {results.map(report => (
                     <tr key={report.id}>
-                      <td className="mr-td-date">{formatDateCell(report.date)}</td>
-                      <td className="mr-td-name">{report.name}</td>
-                      <td>{report.zone}</td>
-                      <td className="mr-type-cell">
+                      <td data-label="Date" className="mr-td-date">{formatDateCell(report.date)}</td>
+                      <td data-label="Client Name" className="mr-td-name">{report.name}</td>
+                      <td data-label="Location">{report.zone}</td>
+                      <td data-label="Type" className="mr-type-cell">
                         <span
                           className={`mr-badge-nature ${
                             report.natureOfCall === 'Emergency' ? 'mr-badge-nature--emergency' : 'mr-badge-nature--incident'
@@ -471,8 +471,8 @@ export const Management_Report = () => {
                           )}
                         </div>
                       </td>
-                      <td className="mr-td-details" title={report.details}>{report.details}</td>
-                      <td>
+                      <td data-label="Details" className="mr-td-details" title={report.details}>{report.details}</td>
+                      <td data-label="Actions" className="mr-actions-cell">
                         <button className="mr-view-btn" onClick={() => openViewModal(report.id)}>
                           <i className="bi bi-eye me-1"></i>View
                         </button>

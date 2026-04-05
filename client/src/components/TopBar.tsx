@@ -69,7 +69,7 @@ export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarPr
       } else {
         const newItems = items.filter((item: NotificationItem) => !seenNotificationIdsRef.current.has(item.id))
         newItems.forEach((item: NotificationItem) => {
-          showDesktopNotification(item)
+          showDesktopNotification(item).catch(() => undefined)
           seenNotificationIdsRef.current.add(item.id)
         })
       }
@@ -146,7 +146,7 @@ export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarPr
     }
   }
 
-  const showDesktopNotification = (item: NotificationItem) => {
+  const showDesktopNotification = async (item: NotificationItem) => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       return
     }
@@ -158,11 +158,24 @@ export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarPr
     const typeLabel = item.report_type === 'Emergency' ? 'Emergency' : 'Incident'
     const body = `${item.actor_username} submitted ${typeLabel} report${item.client_name ? ` for ${item.client_name}` : ''}.`
 
-    const desktopNotification = new Notification(`${typeLabel} Report Submitted`, {
-      body,
-      tag: `report-notification-${item.id}`,
-    })
+    const title = `${typeLabel} Report Submitted`
+    const tag = `report-notification-${item.id}`
 
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration()
+      if (registration) {
+        await registration.showNotification(title, {
+          body,
+          tag,
+          data: {
+            reportId: item.report_id,
+          },
+        })
+        return
+      }
+    }
+
+    const desktopNotification = new Notification(title, { body, tag })
     desktopNotification.onclick = () => {
       window.focus()
       openNotificationReport(item).catch(() => undefined)
@@ -211,6 +224,8 @@ export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarPr
     return () => {
       window.clearInterval(timer)
     }
+    // fetchNotifications depends on local callback graph; keep one interval lifecycle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -280,7 +295,10 @@ export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarPr
             {isNotifOpen && (
               <div className="notif-dropdown" role="dialog" aria-label="Notification list">
                 <div className="notif-dropdown-head">
-                  <strong>Notifications</strong>
+                  <div className="notif-head-title">
+                    <strong>Notifications</strong>
+                    <small>{unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}</small>
+                  </div>
                   <div className="notif-head-actions">
                     {desktopPermission !== 'unsupported' && desktopPermission !== 'granted' && (
                       <button className="notif-enable-alerts" onClick={() => setIsAlertsModalOpen(true)} type="button">
@@ -311,28 +329,33 @@ export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarPr
                         type="button"
                         onClick={() => openNotificationReport(item)}
                       >
-                        <div className="notif-item-head mb-1">
-                          <span className="notif-type-pill">
+                        <div className="notif-item-row">
+                          <span className="notif-item-icon" aria-hidden="true">
                             <i className={resolveTypeIconClass(item.report_type)} />
-                            {item.report_type}
                           </span>
-                          <span className={`notif-read-pill ${item.is_read ? 'read' : 'unread'}`}>
-                            {item.is_read ? 'Read' : 'Unread'}
-                          </span>
+
+                          <div className="notif-item-content">
+                            <p className="notif-message mb-1">
+                              <strong>{item.actor_username}</strong> submitted a <strong>{item.report_type}</strong> report
+                              {item.client_name ? (
+                                <>
+                                  {' '}
+                                  for <strong>{item.client_name}</strong>
+                                </>
+                              ) : (
+                                <> with no client name</>
+                              )}
+                              .
+                            </p>
+
+                            <div className="notif-item-meta">
+                              <span className={`notif-read-pill ${item.is_read ? 'read' : 'unread'}`}>
+                                {item.is_read ? 'Read' : 'Unread'}
+                              </span>
+                              <small className="notif-time">{formatTime(item.submitted_at)}</small>
+                            </div>
+                          </div>
                         </div>
-                        <p className="notif-message mb-1">
-                          <strong>{item.actor_username}</strong> submitted a <strong>{item.report_type}</strong> report
-                          {item.client_name ? (
-                            <>
-                              {' '}
-                              for <strong>{item.client_name}</strong>
-                            </>
-                          ) : (
-                            <> with no client name</>
-                          )}
-                          .
-                        </p>
-                        <small className="notif-time">{formatTime(item.submitted_at)}</small>
                       </button>
                     ))
                   )}
@@ -342,7 +365,7 @@ export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarPr
           </div>
 
           {/* Dark mode toggle */}
-          <button className="topbar-icon-btn" onClick={onToggleDarkMode} aria-label="Toggle dark mode">
+          <button className="topbar-icon-btn topbar-theme-toggle" onClick={onToggleDarkMode} aria-label="Toggle dark mode">
             <i className={`bi ${darkMode ? 'bi-sun' : 'bi-moon'}`} />
           </button>
         </div>

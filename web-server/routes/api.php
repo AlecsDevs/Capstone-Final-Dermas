@@ -3,11 +3,13 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PublicFileController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
 // Public
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/files/public/{path}', [PublicFileController::class, 'show'])->where('path', '.*');
 
 // Requires valid Sanctum token
 Route::middleware(['auth:sanctum', 'device.bound'])->group(function () {

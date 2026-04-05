@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import '../style/splash.css'
 import { useAuth } from '../context/AuthContext'
@@ -7,14 +7,14 @@ export default function SplashPage() {
   const navigate          = useNavigate()
   const { user, loading } = useAuth()
 
-  const go = () => {
+  const go = useCallback(() => {
     const el = document.getElementById('startup-screen')
     if (el) {
       el.style.transition = 'opacity 0.5s ease-out'
       el.style.opacity    = '0'
     }
     setTimeout(() => navigate('/login'), 500)
-  }
+  }, [navigate])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -22,7 +22,7 @@ export default function SplashPage() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [go])
 
   // Still verifying token – render nothing to avoid flash
   if (loading) return null

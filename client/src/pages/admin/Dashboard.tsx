@@ -128,6 +128,24 @@ const inferBarangay = (address: string | null | undefined): string => {
     return firstChunk && firstChunk.length > 0 ? firstChunk : address.trim()
 }
 
+const extractDateKey = (raw: string | null | undefined): string | null => {
+    if (!raw) return null
+    const text = raw.trim()
+    const match = text.match(/^(\d{4}-\d{2}-\d{2})/)
+    if (match) return match[1]
+
+    const parsed = new Date(text)
+    if (Number.isNaN(parsed.getTime())) return null
+    return normalizeDateInput(parsed)
+}
+
+const reportDateKey = (report: ApiReport): string | null => {
+    const fallbackIncidentDate = extractEmergencyDetails(report)?.incident_date
+    return extractDateKey(report.date_reported) ?? extractDateKey(fallbackIncidentDate)
+}
+
+const monthKeyFromDate = (dateKey: string): string => dateKey.slice(0, 7)
+
 const DonutChart = ({ data }: { data: Array<{ label: string; value: number; color: string }> }) => {
     const total = data.reduce((sum, item) => sum + item.value, 0)
 
@@ -143,14 +161,19 @@ const DonutChart = ({ data }: { data: Array<{ label: string; value: number; colo
         )
     }
 
-    let start = 0
-    const slices = data.map((item) => {
-        const percentage = (item.value / total) * 100
-        const end = start + percentage
-        const segment = `${item.color} ${start}% ${end}%`
-        start = end
-        return segment
-    })
+    const slices = data
+        .reduce(
+            (acc, item) => {
+                const percentage = (item.value / total) * 100
+                const end = acc.offset + percentage
+                return {
+                    offset: end,
+                    segments: [...acc.segments, `${item.color} ${acc.offset}% ${end}%`],
+                }
+            },
+            { offset: 0, segments: [] as string[] }
+        )
+        .segments
 
     return (
         <div className="db-donut-wrap">
@@ -287,13 +310,15 @@ export const Dashboard = () => {
     const yearNow = new Date().getFullYear()
     const monthLabel = new Date().toLocaleString(undefined, { month: 'long' })
 
-    const todayCount = useMemo(() => reports.filter((report) => report.date_reported === todayKey).length, [reports, todayKey])
+    const todayCount = useMemo(() => {
+        return reports.filter((report) => reportDateKey(report) === todayKey).length
+    }, [reports, todayKey])
 
     const monthCount = useMemo(() => {
+        const currentMonthKey = `${yearNow}-${`${monthNow + 1}`.padStart(2, '0')}`
         return reports.filter((report) => {
-            const date = new Date(report.date_reported)
-            if (Number.isNaN(date.getTime())) return false
-            return date.getFullYear() === yearNow && date.getMonth() === monthNow
+            const key = reportDateKey(report)
+            return key !== null && monthKeyFromDate(key) === currentMonthKey
         }).length
     }, [reports, monthNow, yearNow])
 
@@ -309,21 +334,23 @@ export const Dashboard = () => {
     }, [reports])
 
     const trend = useMemo(() => {
-        const currentMonthStart = new Date(yearNow, monthNow, 1)
-        const previousMonthStart = new Date(yearNow, monthNow - 1, 1)
+        const currentDate = new Date(yearNow, monthNow, 1)
+        const previousDate = new Date(yearNow, monthNow - 1, 1)
+        const currentMonthKey = `${currentDate.getFullYear()}-${`${currentDate.getMonth() + 1}`.padStart(2, '0')}`
+        const previousMonthKey = `${previousDate.getFullYear()}-${`${previousDate.getMonth() + 1}`.padStart(2, '0')}`
 
         const current = reports.filter((report) => {
-            const date = new Date(report.date_reported)
-            return !Number.isNaN(date.getTime()) && date >= currentMonthStart
+            const key = reportDateKey(report)
+            return key !== null && monthKeyFromDate(key) === currentMonthKey
         }).length
 
         const previous = reports.filter((report) => {
-            const date = new Date(report.date_reported)
-            return !Number.isNaN(date.getTime()) && date >= previousMonthStart && date < currentMonthStart
+            const key = reportDateKey(report)
+            return key !== null && monthKeyFromDate(key) === previousMonthKey
         }).length
 
         if (previous === 0) {
-            return { current, previous, pct: current > 0 ? 100 : 0 }
+            return { current, previous, pct: null as number | null }
         }
 
         return {
@@ -487,10 +514,16 @@ export const Dashboard = () => {
                         <div>
                             <p className="mb-1 fw-semibold">Compared to Last Month:</p>
                             <p className="mb-0 text-muted">
-                                {trend.previous === 0 && trend.current === 0 ? 'No reports yet' : `${trend.current} this month vs ${trend.previous} last month`}
+                                {trend.previous === 0 && trend.current === 0
+                                    ? 'No reports yet'
+                                    : trend.previous === 0
+                                        ? `${trend.current} this month, no reports last month`
+                                        : `${trend.current} this month vs ${trend.previous} last month`}
                             </p>
                         </div>
-                        <span className={`db-trend-pill ${trend.pct >= 0 ? 'positive' : 'negative'}`}>{trend.pct}%</span>
+                        <span className={`db-trend-pill ${trend.pct === null || trend.pct >= 0 ? 'positive' : 'negative'}`}>
+                            {trend.pct === null ? '0%' : `${trend.pct}%`}
+                        </span>
                     </div>
                 </article>
 
