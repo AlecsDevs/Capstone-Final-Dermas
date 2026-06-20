@@ -1,0 +1,402 @@
+/* ── Help Drawer ─────────────────────────────────────────── */
+.hd-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1040;
+  animation: hd-fade-in 0.18s ease;
+}
+
+@keyframes hd-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.hd-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 380px;
+  max-width: 95vw;
+  background: #fff;
+  border-left: 1px solid #e2e8f0;
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.12);
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.hd-drawer--open {
+  transform: translateX(0);
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.hd-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.hd-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.hd-header-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.hd-header-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.hd-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 14px;
+  border-radius: 6px;
+  transition: background 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+
+.hd-close:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+/* ── Body ───────────────────────────────────────────────── */
+.hd-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px 24px;
+  scroll-behavior: smooth;
+}
+
+.hd-section-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #94a3b8;
+  margin-bottom: 10px;
+}
+
+/* ── Steps ──────────────────────────────────────────────── */
+.hd-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hd-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.hd-step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 12px;
+}
+
+.hd-step-body {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.hd-step-icon {
+  font-size: 18px;
+  color: #2563eb;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.hd-step-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 2px;
+}
+
+.hd-step-desc {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+/* ── FAQ accordion ──────────────────────────────────────── */
+.hd-faqs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hd-faq {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.hd-faq--open {
+  border-color: #bfdbfe;
+}
+
+.hd-faq-q {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 13px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.hd-faq-q:hover {
+  background: #f8fafc;
+}
+
+.hd-faq--open .hd-faq-q {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.hd-faq-chevron {
+  font-size: 11px;
+  flex-shrink: 0;
+  color: #94a3b8;
+  transition: color 0.15s;
+}
+
+.hd-faq--open .hd-faq-chevron {
+  color: #2563eb;
+}
+
+.hd-faq-a {
+  padding: 0 13px 12px;
+  font-size: 12.5px;
+  color: #475569;
+  line-height: 1.65;
+  border-top: 1px solid #eff6ff;
+  background: #f8fbff;
+}
+
+/* ── Footer tip ─────────────────────────────────────────── */
+.hd-tip {
+  margin-top: 20px;
+  padding: 10px 14px;
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #92400e;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.hd-tip-icon {
+  color: #d97706;
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── How to Use trigger button ──────────────────────────── */
+.hd-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 36px;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 9px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.hd-trigger-btn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+}
+
+/* ── Dark mode ───────────────────────────────────────────── */
+html.dark .hd-backdrop,
+.dark-mode .hd-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+html.dark .hd-drawer,
+.dark-mode .hd-drawer {
+  background: #1f2937;
+  border-color: #374151;
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5);
+}
+
+html.dark .hd-header,
+.dark-mode .hd-header {
+  border-color: #374151;
+}
+
+html.dark .hd-header-icon,
+.dark-mode .hd-header-icon {
+  background: #1e3a5f;
+}
+
+html.dark .hd-header-title,
+.dark-mode .hd-header-title {
+  color: #f1f5f9;
+}
+
+html.dark .hd-header-sub,
+.dark-mode .hd-header-sub {
+  color: #9ca3af;
+}
+
+html.dark .hd-close,
+.dark-mode .hd-close {
+  color: #6b7280;
+}
+
+html.dark .hd-close:hover,
+.dark-mode .hd-close:hover {
+  background: #263347;
+  color: #f1f5f9;
+}
+
+html.dark .hd-step-body,
+.dark-mode .hd-step-body {
+  background: #111827;
+  border-color: #374151;
+}
+
+html.dark .hd-step-title,
+.dark-mode .hd-step-title {
+  color: #f1f5f9;
+}
+
+html.dark .hd-step-desc,
+.dark-mode .hd-step-desc {
+  color: #9ca3af;
+}
+
+html.dark .hd-faq,
+.dark-mode .hd-faq {
+  border-color: #374151;
+}
+
+html.dark .hd-faq--open,
+.dark-mode .hd-faq--open {
+  border-color: #1e3a5f;
+}
+
+html.dark .hd-faq-q,
+.dark-mode .hd-faq-q {
+  color: #f1f5f9;
+}
+
+html.dark .hd-faq-q:hover,
+.dark-mode .hd-faq-q:hover {
+  background: #263347;
+}
+
+html.dark .hd-faq--open .hd-faq-q,
+.dark-mode .hd-faq--open .hd-faq-q {
+  background: #1e3a5f;
+  color: #93c5fd;
+}
+
+html.dark .hd-faq-a,
+.dark-mode .hd-faq-a {
+  background: #111827;
+  border-color: #1e3a5f;
+  color: #9ca3af;
+}
+
+html.dark .hd-section-label,
+.dark-mode .hd-section-label {
+  color: #6b7280;
+}
+
+html.dark .hd-tip,
+.dark-mode .hd-tip {
+  background: #1c1a00;
+  border-color: #854d0e;
+  color: #fbbf24;
+}
+
+html.dark .hd-tip-icon,
+.dark-mode .hd-tip-icon {
+  color: #f59e0b;
+}
+
+html.dark .hd-trigger-btn,
+.dark-mode .hd-trigger-btn {
+  background: #1e3a5f;
+  border-color: #1e40af;
+  color: #93c5fd;
+}
+
+html.dark .hd-trigger-btn:hover,
+.dark-mode .hd-trigger-btn:hover {
+  background: #1e3a5f;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+}

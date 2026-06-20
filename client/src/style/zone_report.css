@@ -1,4 +1,4 @@
-.zr-page {
+﻿.zr-page {
   color: #1f2937;
   width: 100%;
 }
@@ -116,6 +116,113 @@
 
 .zr-btn-excel {
   background: linear-gradient(135deg, #49a955, #69c46f);
+}
+
+/* ── Downloads dropdown ──────────────────────────────── */
+.zr-dl-menu-wrap {
+  position: relative;
+}
+
+.zr-btn-pdf--open {
+  filter: brightness(0.92);
+}
+
+.zr-dl-chevron {
+  font-size: 0.75rem;
+  transition: transform 0.18s ease;
+}
+
+.zr-dl-chevron--up {
+  transform: rotate(-180deg);
+}
+
+.zr-dl-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 240px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.15);
+  padding: 6px;
+  z-index: 200;
+  animation: zr-dl-fade 0.14s ease;
+}
+
+@keyframes zr-dl-fade {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.zr-dl-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  color: #1f2937;
+}
+
+.zr-dl-item:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.zr-dl-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.zr-dl-item span {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.zr-dl-item strong {
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.zr-dl-item small {
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.3;
+}
+
+.zr-dl-icon {
+  font-size: 1.25rem;
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.zr-dl-icon--pdf    { color: #e53e3e; }
+.zr-dl-icon--zip    { color: #7c3aed; }
+.zr-dl-icon--excel  { color: #2f855a; }
+.zr-dl-icon--template { color: #2b6cb0; }
+
+.zr-dl-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 4px 6px;
+}
+
+/* ── Refresh spin ──────────────────────────────────────── */
+@keyframes zr-spin {
+  to { transform: rotate(360deg); }
+}
+
+.zr-spin {
+  display: inline-block;
+  animation: zr-spin 0.8s linear infinite;
 }
 
 .zr-card {
@@ -507,7 +614,7 @@ html.dark {
   }
 
   .zr-select {
-    background-color: #0f172a !important;
+    background-color: #1f2937 !important;
     color: #e2e8f0 !important;
     border-color: #334155 !important;
   }
@@ -517,7 +624,7 @@ html.dark {
   }
 
   .zr-search-wrap {
-    background: #0f172a;
+    background: #1f2937;
     border-color: #334155;
   }
 
@@ -561,7 +668,7 @@ html.dark {
 .zr-doc-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1400;
+  z-index: 10500;
   background: rgba(15, 23, 42, 0.58);
   display: flex;
   align-items: center;
@@ -1065,13 +1172,19 @@ html.dark {
 
   .zr-doc-modal-body {
     padding: 10px;
-    --zr-doc-zoom-mobile: 0.86;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .zr-doc-zoom-surface {
-    width: calc(100% / var(--zr-doc-zoom-mobile));
-    transform: scale(var(--zr-doc-zoom-mobile));
+    /* Keep natural PCR width — user scrolls horizontally instead of squishing */
+    min-width: 720px;
+    width: max-content;
     transform-origin: top left;
+  }
+
+  .zr-doc-zoom-surface .pcr-page {
+    min-width: 700px;
   }
 
   .zr-report-paper {
@@ -1724,6 +1837,52 @@ html.dark .btn-stepper-preview-eye.is-open,
   box-shadow: 0 0 0 0.16rem rgba(239, 68, 68, 0.18) !important;
 }
 
+.input-group-custom {
+  display: flex !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  border: 2px solid #c5d6d5 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  background: white !important;
+}
+
+.input-group-custom .form-control {
+  border: none !important;
+  border-radius: 0 !important;  
+  min-height: 58px !important;
+  flex: 4 1 0 !important;
+  min-width: 0 !important;
+  width: auto !important;
+  padding: 12px 14px !important;
+  box-shadow: none !important;
+}
+
+.input-group-custom .form-select {
+  border: none !important;
+  border-radius: 0 !important;
+  border-left: 1px solid #c5d6d5 !important;
+  min-height: 58px !important;
+  font-size: 0.9rem !important;
+  padding: 8px 10px !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  width: auto !important;
+  box-shadow: none !important;
+  background-color: white !important;
+}
+
+.input-group-custom .form-select:focus {
+  border-left-color: #58a9a1 !important;
+  outline: none !important;
+}
+
+.input-group-custom .form-control:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
 .zr-field-error {
   color: #ef4444;
   font-size: 0.8rem;
@@ -1930,7 +2089,7 @@ html.dark .btn-stepper-preview-eye.is-open,
 
 html.dark .report-type-card,
 .dark-mode .report-type-card {
-  background: #0f172a;
+  background: #1f2937;
   border-color: #334155;
 }
 
@@ -1989,14 +2148,14 @@ html.dark .zr-label,
 
 html.dark .zr-select,
 .dark-mode .zr-select {
-  background-color: #0f172a !important;
+  background-color: #1f2937 !important;
   color: #e2e8f0 !important;
   border-color: #334155 !important;
 }
 
 html.dark .zr-search-wrap,
 .dark-mode .zr-search-wrap {
-  background: #0f172a;
+  background: #1f2937;
   border-color: #334155;
 }
 
@@ -2032,11 +2191,11 @@ html.dark .zr-empty,
 }
 
 html.dark .zr-modal-panel {
-  background: #0f172a;
+  background: #1f2937;
 }
 
 .dark-mode .zr-modal-panel {
-  background: #0f172a;
+  background: #1f2937;
 }
 
 html.dark .zr-modal-stepper-shell,
@@ -2062,11 +2221,11 @@ html.dark .zr-mini-card {
 }
 
 html.dark .zr-modal-content-wrap {
-  background: #0f172a;
+  background: #1f2937;
 }
 
 .dark-mode .zr-modal-content-wrap {
-  background: #0f172a;
+  background: #1f2937;
 }
 
 html.dark .step-header h4,
@@ -2104,7 +2263,7 @@ html.dark .card-description {
 html.dark .zr-step-input,
 html.dark .zr-mini-input,
 html.dark .upload-zone {
-  background: #0b1220;
+  background: #263347;
   border-color: #334155 !important;
   color: #e2e8f0;
 }
@@ -2112,7 +2271,7 @@ html.dark .upload-zone {
 .dark-mode .zr-step-input,
 .dark-mode .zr-mini-input,
 .dark-mode .upload-zone {
-  background: #0b1220;
+  background: #263347;
   border-color: #334155 !important;
   color: #e2e8f0;
 }
@@ -2125,7 +2284,7 @@ html.dark .zr-responder-row,
 html.dark .btn-add-responder,
 html.dark .step-card-body .form-floating > .form-control,
 html.dark .step-card-body .form-floating > .form-select {
-  background: #0b1220;
+  background: #263347;
   border-color: #334155;
   color: #e2e8f0;
 }
@@ -2138,7 +2297,7 @@ html.dark .step-card-body .form-floating > .form-select {
 .dark-mode .btn-add-responder,
 .dark-mode .step-card-body .form-floating > .form-control,
 .dark-mode .step-card-body .form-floating > .form-select {
-  background: #0b1220;
+  background: #263347;
   border-color: #334155;
   color: #e2e8f0;
 }
@@ -2205,13 +2364,13 @@ html.dark .zr-person-card-head {
 }
 
 html.dark .zr-remove-person-btn {
-  background: #0b1220;
+  background: #263347;
   border-color: #7f1d1d;
   color: #fda4af;
 }
 
 .dark-mode .zr-remove-person-btn {
-  background: #0b1220;
+  background: #263347;
   border-color: #7f1d1d;
   color: #fda4af;
 }
@@ -2241,7 +2400,7 @@ html.dark .review-item {
 /* Edit/View report modal dark mode fields */
 html.dark .zr-doc-modal,
 .dark-mode .zr-doc-modal {
-  background: #0f172a;
+  background: #1f2937;
   border-color: #334155;
 }
 
@@ -2294,7 +2453,7 @@ html.dark .zr-report-paper .form-control,
 html.dark .zr-report-paper .form-select,
 .dark-mode .zr-report-paper .form-control,
 .dark-mode .zr-report-paper .form-select {
-  background: #0b1220;
+  background: #263347;
   border-color: #334155;
   color: #e2e8f0;
 }
@@ -2304,6 +2463,250 @@ html.dark .zr-report-paper .form-select,
 .dark-mode .zr-report-paper .form-control::placeholder,
 .dark-mode .zr-report-paper .form-select {
   color: #94a3b8;
+}
+
+/* ── Step form light-mode base (inline-style replacements) */
+.zr-form-body {
+  background: #fff;
+}
+.zr-person-card-hd {
+  background: #f8f9fa;
+}
+.zr-acc-chip {
+  background: #fff;
+}
+.zr-nav-pill {
+  background: #fff;
+}
+
+/* ── Ambulance Transfer section cards ────────────────── */
+.zr-section-card {
+  border: 1px solid #e9ecef;
+}
+.zr-section-toggle {
+  background: #fff;
+  color: #1f2937;
+}
+.zr-section-body {
+  background: #fafbfc;
+}
+
+/* ── Report Edit Modal tab bar ───────────────────────── */
+.zr-edit-tabbar {
+  background: #fafbfc;
+  border-bottom: 1px solid #dee2e6;
+}
+.zr-assess-box {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+.zr-table-head {
+  background: #f8f9fa;
+}
+.zr-upload-label {
+  background: #f8f9fa;
+}
+.zr-map-statusbar {
+  background: #f8f9fa;
+}
+
+/* ── Step form dark mode ─────────────────────────────── */
+html.dark .zr-form-body,
+.dark-mode .zr-form-body {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+}
+html.dark .zr-assess-box,
+.dark-mode .zr-assess-box {
+  background: #263347 !important;
+  border-color: #374151 !important;
+  color: #e2e8f0;
+}
+html.dark .zr-table-head,
+.dark-mode .zr-table-head {
+  background: #263347 !important;
+  color: #94a3b8 !important;
+}
+html.dark .zr-table-head th,
+.dark-mode .zr-table-head th {
+  background: #263347 !important;
+  color: #94a3b8;
+  border-color: #374151 !important;
+}
+html.dark .zr-upload-label,
+.dark-mode .zr-upload-label {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+  color: #94a3b8;
+}
+html.dark .zr-map-statusbar,
+.dark-mode .zr-map-statusbar {
+  background: #1f2937 !important;
+}
+/* Ambulance section cards */
+html.dark .zr-section-card,
+.dark-mode .zr-section-card {
+  border-color: #374151 !important;
+}
+html.dark .zr-section-toggle,
+.dark-mode .zr-section-toggle {
+  background: #1f2937 !important;
+  color: #e2e8f0 !important;
+}
+html.dark .zr-section-body,
+.dark-mode .zr-section-body {
+  background: #263347 !important;
+}
+
+/* Edit modal tab bar */
+html.dark .zr-edit-tabbar,
+.dark-mode .zr-edit-tabbar {
+  background: #1f2937 !important;
+  border-bottom-color: #374151 !important;
+}
+
+html.dark .zr-person-card-wrap,
+.dark-mode .zr-person-card-wrap {
+  border-color: #374151 !important;
+}
+html.dark .zr-person-card-hd,
+.dark-mode .zr-person-card-hd {
+  background: #263347 !important;
+  border-bottom-color: #374151 !important;
+}
+html.dark .zr-acc-chip,
+.dark-mode .zr-acc-chip {
+  background: #1f2937 !important;
+}
+html.dark .zr-nav-pill,
+.dark-mode .zr-nav-pill {
+  background: #263347 !important;
+  border-color: #374151 !important;
+}
+
+/* Barangay autocomplete dropdown */
+.zr-bgy-option { color: #1e293b; }
+.zr-bgy-option:hover { background: #eff6ff; }
+
+html.dark .zr-bgy-dropdown,
+.dark-mode .zr-bgy-dropdown {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+}
+html.dark .zr-bgy-option,
+.dark-mode .zr-bgy-option {
+  color: #e2e8f0 !important;
+  border-bottom-color: #263347 !important;
+}
+html.dark .zr-bgy-option:hover,
+.dark-mode .zr-bgy-option:hover {
+  background: #263347 !important;
+}
+
+/* ── Global dark overrides for inline-styled labels inside stepper modal */
+html.dark .zr-modal-content-wrap .form-label,
+html.dark .zr-modal-content-wrap .form-check-label,
+html.dark .zr-section-body .form-label,
+.dark-mode .zr-modal-content-wrap .form-label,
+.dark-mode .zr-modal-content-wrap .form-check-label,
+.dark-mode .zr-section-body .form-label {
+  color: #94a3b8 !important;
+}
+
+html.dark .zr-assess-box .fw-semibold,
+html.dark .zr-section-body .fw-semibold,
+html.dark .zr-form-body .fw-semibold,
+.dark-mode .zr-assess-box .fw-semibold,
+.dark-mode .zr-section-body .fw-semibold,
+.dark-mode .zr-form-body .fw-semibold {
+  color: #e2e8f0 !important;
+}
+
+/* ── Stepper circle, track & connector dark mode ─────── */
+html.dark .stepper-container,
+.dark-mode .stepper-container {
+  background-color: #1f2937;
+}
+
+html.dark .stepper-step,
+.dark-mode .stepper-step {
+  background-color: #263347;
+  color: #94a3b8;
+  border-color: #374151;
+}
+
+html.dark .stepper-line,
+.dark-mode .stepper-line {
+  background-color: #374151;
+}
+
+html.dark .stepper-line.active,
+.dark-mode .stepper-line.active {
+  background-color: #3bb3a5;
+}
+
+html.dark .stepper-step.active,
+.dark-mode .stepper-step.active {
+  background-color: #1b7a73;
+  border-color: #3bb3a5;
+  color: #f0fdfa;
+}
+
+html.dark .stepper-step.completed,
+.dark-mode .stepper-step.completed {
+  background-color: #166534;
+  border-color: #4ade80;
+  color: #f0fdf4;
+}
+
+html.dark .stepper-item:has(.stepper-step.active) .stepper-label,
+html.dark .stepper-item:has(.stepper-step.completed) .stepper-label,
+.dark-mode .stepper-item:has(.stepper-step.active) .stepper-label,
+.dark-mode .stepper-item:has(.stepper-step.completed) .stepper-label {
+  color: #e2e8f0;
+}
+
+html.dark .step-header,
+.dark-mode .step-header {
+  border-bottom-color: #334155;
+}
+
+/* ── Stepper footer buttons dark mode ─────────────────── */
+html.dark .btn-stepper-prev,
+.dark-mode .btn-stepper-prev {
+  background: #263347;
+  color: #cbd5e1;
+}
+
+html.dark .btn-stepper-prev:hover,
+.dark-mode .btn-stepper-prev:hover {
+  background: #374151;
+  color: #f1f5f9;
+}
+
+html.dark .btn-stepper-choose,
+.dark-mode .btn-stepper-choose {
+  background: #1f2937;
+  color: #cbd5e1;
+  border-color: #374151;
+}
+
+html.dark .btn-stepper-choose:hover,
+.dark-mode .btn-stepper-choose:hover {
+  background: #263347;
+}
+
+/* ── Report type card icon (emergency) dark mode ─────── */
+html.dark .report-type-card .card-icon.emergency,
+.dark-mode .report-type-card .card-icon.emergency {
+  background: #3f1a1a;
+  color: #f87171;
+}
+
+html.dark .report-type-card.selected .card-icon.emergency,
+.dark-mode .report-type-card.selected .card-icon.emergency {
+  background: #dc2626;
+  color: #fff;
 }
 
 @media (max-width: 767.98px) {

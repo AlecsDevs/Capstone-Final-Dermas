@@ -1,62 +1,30 @@
-
-import { Suspense, lazy, type ReactElement } from 'react'
+import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
-import { AdminLayout } from './components/AdminLayout'
-import { StaffLayout } from './components/StaffLayout'
+import { AppLayout } from './components/AppLayout'
 import PwaInstallButton from './components/PwaInstallButton'
 import { AppLoadingScreen } from './components/AppLoadingScreen'
 
-const SplashPage = lazy(() => import('./pages/SplashPage.tsx'))
-const LoginPage = lazy(() => import('./pages/LoginPage.tsx'))
-const Dashboard = lazy(() => import('./pages/admin/Dashboard').then(mod => ({ default: mod.Dashboard })))
+const SplashPage        = lazy(() => import('./pages/SplashPage.tsx'))
+const LoginPage         = lazy(() => import('./pages/LoginPage.tsx'))
+const Dashboard         = lazy(() => import('./pages/admin/Dashboard').then(m => ({ default: m.Dashboard })))
+const StaffDashboard    = lazy(() => import('./pages/staff/StaffDashboard'))
 const Management_Report = lazy(() => import('./pages/admin/Management_Report.tsx'))
-const Zone_Report = lazy(() => import('./pages/admin/Zone_Report.tsx'))
-const UserManagement = lazy(() => import('./pages/admin/UserManagement.tsx'))
-const DocumentsPage = lazy(() => import('./pages/DocumentsPage'))
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
+const Zone_Report       = lazy(() => import('./pages/admin/Zone_Report.tsx'))
+const UserManagement    = lazy(() => import('./pages/admin/UserManagement.tsx'))
+const DocumentsPage     = lazy(() => import('./pages/DocumentsPage'))
+const TrashPage         = lazy(() => import('./pages/TrashPage'))
+const AboutPage         = lazy(() => import('./pages/AboutPage'))
+const NotFoundPage      = lazy(() => import('./pages/NotFoundPage'))
 
-type AppRole = 'admin' | 'staff'
-
-interface ChildRouteConfig {
-  path: string
-  element: ReactElement
-}
-
-interface ProtectedRouteConfig {
-  role: AppRole
-  basePath: `/${AppRole}`
-  layout: ReactElement
-  indexRedirect: string
-  children: ChildRouteConfig[]
-}
-
-const sharedReportRoutes: ChildRouteConfig[] = [
-  { path: 'dashboard', element: <Dashboard /> },
-  { path: 'zonal-reports', element: <Management_Report /> },
+// Pages shared by both admin and staff
+const sharedRoutes = [
+  { path: 'zonal-reports',           element: <Management_Report /> },
   { path: 'zonal-reports/:zoneSlug', element: <Zone_Report /> },
-  { path: 'documents', element: <DocumentsPage /> },
-]
-
-const protectedRouteConfigs: ProtectedRouteConfig[] = [
-  {
-    role: 'admin',
-    basePath: '/admin',
-    layout: <AdminLayout />,
-    indexRedirect: 'dashboard',
-    children: [...sharedReportRoutes, { path: 'user-management', element: <UserManagement /> }],
-  },
-  {
-    role: 'staff',
-    basePath: '/staff',
-    layout: <StaffLayout />,
-    indexRedirect: 'dashboard',
-    children: [
-      ...sharedReportRoutes,
-      { path: 'reports', element: <Navigate to='/staff/zonal-reports' replace /> },
-    ],
-  },
+  { path: 'documents',               element: <DocumentsPage /> },
+  { path: 'trash',                   element: <TrashPage /> },
+  { path: 'about',                   element: <AboutPage /> },
 ]
 
 function App() {
@@ -68,16 +36,25 @@ function App() {
           <Route path='/' element={<SplashPage />} />
           <Route path='/login' element={<LoginPage />} />
 
-          {protectedRouteConfigs.map((config) => (
-            <Route key={config.role} element={<ProtectedRoute allowedRoles={[config.role]} />}>
-              <Route path={config.basePath} element={config.layout}>
-                <Route index element={<Navigate to={config.indexRedirect} replace />} />
-                {config.children.map((child) => (
-                  <Route key={`${config.role}-${child.path}`} path={child.path} element={child.element} />
-                ))}
-              </Route>
+          {/* Admin */}
+          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route path='/admin' element={<AppLayout />}>
+              <Route index element={<Navigate to='dashboard' replace />} />
+              <Route path='dashboard' element={<Dashboard />} />
+              {sharedRoutes.map(r => <Route key={r.path} path={r.path} element={r.element} />)}
+              <Route path='user-management' element={<UserManagement />} />
             </Route>
-          ))}
+          </Route>
+
+          {/* Staff */}
+          <Route element={<ProtectedRoute allowedRoles={['staff']} />}>
+            <Route path='/staff' element={<AppLayout />}>
+              <Route index element={<Navigate to='dashboard' replace />} />
+              <Route path='dashboard' element={<StaffDashboard />} />
+              {sharedRoutes.map(r => <Route key={r.path} path={r.path} element={r.element} />)}
+              <Route path='reports' element={<Navigate to='/staff/zonal-reports' replace />} />
+            </Route>
+          </Route>
 
           <Route path='*' element={<NotFoundPage />} />
         </Routes>
@@ -88,7 +65,3 @@ function App() {
 }
 
 export default App
-
-
-
-

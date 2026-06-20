@@ -9,12 +9,7 @@ interface IncidentDetailsStepProps {
   natureOfCall: string
   incidentDate: string
   incidentTime: string
-  dispatchOfficer: string
-  responders: string[]
   onChange: (key: string, value: string) => void
-  onChangeResponder: (index: number, value: string) => void
-  onAddResponder: () => void
-  onRemoveResponder: (index: number) => void
 }
 
 export function IncidentDetailsStep({
@@ -26,12 +21,7 @@ export function IncidentDetailsStep({
   natureOfCall,
   incidentDate,
   incidentTime,
-  dispatchOfficer,
-  responders,
   onChange,
-  onChangeResponder,
-  onAddResponder,
-  onRemoveResponder,
 }: IncidentDetailsStepProps) {
   const isEmergency = reportKind === 'emergency'
 
@@ -131,6 +121,8 @@ export function IncidentDetailsStep({
                       <option value="Earthquake">Earthquake</option>
                       <option value="Typhoon">Typhoon</option>
                       <option value="Landslide">Landslide</option>
+                      <option value="Tsunami">Tsunami</option>
+                      <option value="Volcanic Eruption">Volcanic Eruption</option>
                     </select>
                     <label htmlFor="hzTypeOfHazard">Type of Hazard</label>
                   </div>
@@ -185,63 +177,7 @@ export function IncidentDetailsStep({
               </div>
             </div>
 
-            <div className="row g-3 mb-3">
-              <div className="col-12 col-md-6">
-                <div className="form-floating">
-                  <select
-                    id="hzDispatch"
-                    className="form-select zr-step-input"
-                    value={dispatchOfficer}
-                    onChange={e => onChange('dispatchOfficer', e.target.value)}
-                  >
-                    <option value="" disabled>
-                      Choose Dispatcher
-                    </option>
-                    <option value="Kabochi">Kabochi</option>
-                    <option value="Fox">Fox</option>
-                    <option value="Pastor">Pastor</option>
-                  </select>
-                  <label htmlFor="hzDispatch">Dispatch Officer</label>
-                </div>
-              </div>
-            </div>
 
-            <div className="section-divider">
-              <i className="bi bi-people"></i> Responders
-            </div>
-
-            <div id="hzRespondersContainer">
-              {responders.map((responder, index) => (
-                <div className="zr-responder-row" key={`responder-${index}`}>
-                  <div className="form-floating flex-grow-1">
-                    <input
-                      type="text"
-                      className="form-control zr-step-input"
-                      id={`hzResponder-${index}`}
-                      placeholder="Responder name"
-                      value={responder}
-                      onChange={e => onChangeResponder(index, e.target.value)}
-                    />
-                    <label htmlFor={`hzResponder-${index}`}>Responder name</label>
-                  </div>
-                  {responders.length > 1 && (
-                    <button
-                      type="button"
-                      className="zr-remove-person-btn"
-                      onClick={() => onRemoveResponder(index)}
-                      aria-label={`Remove responder ${index + 1}`}
-                    >
-                      <i className="bi bi-trash3"></i>
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <button type="button" className="btn btn-add-responder mt-2" onClick={onAddResponder}>
-              <i className="bi bi-person-plus-fill me-1"></i>
-              Add Responder
-            </button>
           </div>
         </div>
       </div>

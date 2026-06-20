@@ -1,4 +1,4 @@
-.um-page {
+﻿.um-page {
   padding: 0.25rem;
 }
 
@@ -340,6 +340,94 @@
   border: 1px solid #bbf7d0;
   border-radius: 8px;
   padding: 0.45rem 0.55rem;
+}
+
+/* ── Stepper ─────────────────────────────────────────── */
+.um-stepper {
+  display: flex;
+  align-items: center;
+  padding: 0.7rem 1.2rem 0.6rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  gap: 0;
+}
+
+.um-step {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1;
+}
+
+.um-step-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+.um-step-done .um-step-circle {
+  background: #2563eb;
+  color: #fff;
+}
+
+.um-step span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  transition: color 0.25s ease;
+}
+
+.um-step-done span {
+  color: #1d4ed8;
+}
+
+.um-step-line {
+  flex: 1;
+  height: 2px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  margin: 0 0.5rem;
+  max-width: 60px;
+}
+
+/* Summary chip on step 2 */
+.um-step2-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e40af;
+}
+
+.um-step2-summary i {
+  font-size: 1rem;
+  color: #2563eb;
+}
+
+.um-step2-username {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.um-optional {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  font-weight: 400;
 }
 
 .um-modal-footer {
@@ -904,7 +992,7 @@ html.dark .um-mini-modal,
 .dark-mode .um-card,
 .dark-mode .um-modal-card,
 .dark-mode .um-mini-modal {
-  background: #0f172a;
+  background: #1f2937;
   border-color: #334155;
 }
 
@@ -945,7 +1033,7 @@ html.dark .um-account-lock-note,
 .dark-mode .um-input-wrap-readonly,
 .dark-mode .um-note,
 .dark-mode .um-account-lock-note {
-  background: #0b1220;
+  background: #263347;
   border-color: #334155;
   color: #cbd5e1;
 }
@@ -984,15 +1072,15 @@ html.dark .um-table tbody td,
 html.dark .um-log-item,
 .dark-mode .um-table tbody td,
 .dark-mode .um-log-item {
-  background: #0f172a;
+  background: #1f2937;
   border-color: #1f2937;
 }
 
 html.dark .um-table,
 .dark-mode .um-table {
-  --bs-table-bg: #0f172a;
+  --bs-table-bg: #1f2937;
   --bs-table-color: #cbd5e1;
-  --bs-table-striped-bg: #111827;
+  --bs-table-striped-bg: #263347;
   --bs-table-striped-color: #cbd5e1;
   --bs-table-hover-bg: #172036;
   --bs-table-hover-color: #e2e8f0;
@@ -1002,6 +1090,25 @@ html.dark .um-table,
 html.dark .um-page .text-muted,
 .dark-mode .um-page .text-muted {
   color: #94a3b8 !important;
+}
+
+html.dark .um-stepper,
+.dark-mode .um-stepper {
+  background: #263347;
+  border-color: #334155;
+}
+
+html.dark .um-step-circle,
+.dark-mode .um-step-circle {
+  background: #1e293b;
+  color: #94a3b8;
+}
+
+html.dark .um-step2-summary,
+.dark-mode .um-step2-summary {
+  background: #1e3a5f;
+  border-color: #1d4ed8;
+  color: #bfdbfe;
 }
 
 html.dark .um-mini-nav-btn.active,
@@ -1028,7 +1135,7 @@ html.dark .um-close-btn:hover,
 @media (max-width: 991.98px) {
   html.dark .um-table-mobile-cards,
   .dark-mode .um-table-mobile-cards {
-    --bs-table-bg: #0f172a;
+    --bs-table-bg: #1f2937;
     --bs-table-color: #cbd5e1;
     --bs-table-border-color: #334155;
     --bs-table-accent-bg: transparent;
@@ -1038,7 +1145,7 @@ html.dark .um-close-btn:hover,
 
   html.dark .um-table-mobile-cards tbody tr,
   .dark-mode .um-table-mobile-cards tbody tr {
-    background: #0b1220;
+    background: #263347;
     border-color: #334155;
     box-shadow: 0 10px 20px rgba(2, 6, 23, 0.38);
   }
@@ -1053,4 +1160,130 @@ html.dark .um-close-btn:hover,
   .dark-mode .um-table-mobile-cards tbody td::before {
     color: #94a3b8;
   }
+}
+
+/* ── Activity Logs Section ─────────────────────────────────── */
+.um-logs-card {
+  margin-top: 1.5rem;
+}
+
+.um-logs-filter {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  color: #374151;
+  background: #fff;
+  cursor: pointer;
+}
+
+.um-refresh-btn {
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+  color: #374151;
+  transition: background 0.15s;
+}
+
+.um-refresh-btn:hover {
+  background: #f3f4f6;
+}
+
+.um-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  display: inline-block;
+  animation: spin 0.7s linear infinite;
+}
+
+.um-logs-table td {
+  font-size: 0.82rem;
+  vertical-align: middle;
+  color: #374151;
+}
+
+.um-log-time {
+  white-space: nowrap;
+  color: #6b7280;
+}
+
+.um-action-badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.um-action-login {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.um-action-create_user {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.um-action-create_report {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.um-action-submit_report {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.um-action-profile_update {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.um-action-status_change {
+  background: #fce7f3;
+  color: #9d174d;
+}
+
+.um-action-password_change {
+  background: #fef9c3;
+  color: #713f12;
+}
+
+.um-log-role {
+  color: #9ca3af;
+  font-size: 0.78rem;
+}
+
+.um-log-item > .bi {
+  color: #64748b;
+  font-size: 0.95rem;
+  margin-top: 0.1rem;
+  flex-shrink: 0;
+}
+
+.um-log-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.um-log-desc {
+  font-size: 0.85rem;
+  color: #1e293b;
+}
+
+.um-log-meta {
+  font-size: 0.75rem;
+  color: #94a3b8;
 }

@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import api from '../../api/axios'
 import { useAuth } from '../../context/AuthContext'
-import { ModalWarning, ModalConfirm, ModalForm, ModalLogoutAllSessions } from '../../components/modals'
+import { ModalWarning, ModalConfirm, ModalLogoutAllSessions } from '../../components/modals'
 import '../../style/user-management.css'
+import { PageTour } from '../../components/PageTour'
+import type { Step } from 'react-joyride'
 import type {
   ActionTab,
+  ActivityLogEntry,
   ApiUser,
   CreateUserResponse,
   EditUserForm,
@@ -16,7 +19,28 @@ import type {
   UserRow,
 } from '../../types/userManagement'
 
+const ACTION_LABELS: Record<string, string> = {
+  login: 'Login',
+  create_user: 'Create User',
+  create_report: 'Create Report',
+  submit_report: 'Submit Report',
+  profile_update: 'Profile Update',
+  status_change: 'Status Change',
+  password_change: 'Password Change',
+}
+
+const ACTION_ICONS: Record<string, string> = {
+  login: 'bi-box-arrow-in-right',
+  create_user: 'bi-person-plus',
+  create_report: 'bi-file-earmark-plus',
+  submit_report: 'bi-send-check',
+  profile_update: 'bi-pencil-square',
+  status_change: 'bi-toggle-on',
+  password_change: 'bi-shield-lock',
+}
+
 const INITIAL_FORM: StaffForm = {
+  fullName: '',
   username: '',
   email: '',
   address: '',
@@ -40,8 +64,9 @@ const INITIAL_USER_LOGS: UserLogs = {
 
 const mapApiUserToRow = (user: ApiUser): UserRow => ({
   id: user.id,
+  fullName: user.full_name ?? '',
   username: user.username,
-  email: user.email,
+  email: user.email ?? '',
   address: user.address ?? '',
   phone: user.phone_number ?? '',
   role: user.role,
@@ -70,10 +95,12 @@ export default function UserManagement() {
   const [usersError, setUsersError] = useState('')
   const [submittingStaff, setSubmittingStaff] = useState(false)
   const [showAddStaff, setShowAddStaff] = useState(false)
+  const [staffStep, setStaffStep] = useState(1)
   const [showActionPanel, setShowActionPanel] = useState(false)
   const [actionTab, setActionTab] = useState<ActionTab>('profile')
   const [staffForm, setStaffForm] = useState<StaffForm>(INITIAL_FORM)
   const [editUserForm, setEditUserForm] = useState<EditUserForm>({
+    fullName: '',
     username: '',
     email: '',
     address: '',
@@ -101,13 +128,16 @@ export default function UserManagement() {
   const [reloginReason, setReloginReason] = useState<'sessions-logged-out' | 'password-changed' | 'account-changed'>('sessions-logged-out')
   const [pendingProfileEditUser, setPendingProfileEditUser] = useState<UserRow | null>(null)
   const [showProfileEditLogoutConfirm, setShowProfileEditLogoutConfirm] = useState(false)
+  const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
+  const [logsFilter, setLogsFilter] = useState<string>('all')
 
   const staffUsers = useMemo(() => {
     const keyword = searchStaff.trim().toLowerCase()
     return users.filter((user) => {
       if (user.role !== 'staff') return false
       if (!keyword) return true
-      return [user.username, user.email, user.address, user.phone].some((field) =>
+      return [user.fullName, user.username, user.email, user.address, user.phone].some((field) =>
         field.toLowerCase().includes(keyword)
       )
     })
@@ -118,14 +148,16 @@ export default function UserManagement() {
     return users.filter((user) => {
       if (user.role !== 'admin') return false
       if (!keyword) return true
-      return [user.username, user.email, user.address, user.phone].some((field) =>
+      return [user.fullName, user.username, user.email, user.address, user.phone].some((field) =>
         field.toLowerCase().includes(keyword)
       )
     })
   }, [users, searchAdmin])
 
   const selectedActionUser = users.find((item) => item.id === selectedActionUserId) ?? null
-  const selectedActionLogs = selectedActionUserId ? userLogs[selectedActionUserId] ?? [] : []
+  const selectedActionLogs = selectedActionUserId
+    ? activityLogs.filter((log) => log.user_id === selectedActionUserId)
+    : []
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -142,6 +174,22 @@ export default function UserManagement() {
     }
 
     loadUsers()
+  }, [])
+
+  const fetchActivityLogs = async () => {
+    setLogsLoading(true)
+    try {
+      const res = await api.get<ActivityLogEntry[]>('/activity-logs')
+      setActivityLogs(res.data)
+    } catch (_e) {
+      // silently fail
+    } finally {
+      setLogsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void fetchActivityLogs()
   }, [])
 
   const addUserLog = (userId: number, action: string) => {
@@ -164,6 +212,16 @@ export default function UserManagement() {
     setFormError('')
     setSubmittingStaff(false)
     setStaffForm(INITIAL_FORM)
+    setStaffStep(1)
+  }
+
+  const handleStepNext = () => {
+    setFormError('')
+    if (!staffForm.fullName.trim()) { setFormError('Full name is required.'); return }
+    if (!staffForm.username.trim()) { setFormError('Username is required.'); return }
+    const duplicate = users.some(u => u.username.toLowerCase() === staffForm.username.trim().toLowerCase())
+    if (duplicate) { setFormError('Username already exists.'); return }
+    setStaffStep(2)
   }
 
   const openActionModal = (id: number) => {
@@ -177,6 +235,7 @@ export default function UserManagement() {
     const pickedUser = users.find((item) => item.id === id)
     if (pickedUser) {
       setEditUserForm({
+        fullName: pickedUser.fullName,
         username: pickedUser.username,
         email: pickedUser.email,
         address: pickedUser.address,
@@ -256,26 +315,18 @@ export default function UserManagement() {
     event.preventDefault()
     setFormError('')
 
-      if (staffForm.password !== staffForm.confirmPassword) {
-        setFormError('Passwords do not match.')
-        return
-      }
-
-      const usernameExists = users.some(
-        (user) => user.username.toLowerCase() === staffForm.username.trim().toLowerCase()
-      )
-
-      if (usernameExists) {
-        setFormError('Username already exists.')
-        return
-      }
+    if (staffForm.password !== staffForm.confirmPassword) {
+      setFormError('Passwords do not match.')
+      return
+    }
 
     setSubmittingStaff(true)
 
     try {
       const res = await api.post<CreateUserResponse>('/users', {
+        full_name: staffForm.fullName.trim(),
         username: staffForm.username.trim(),
-        email: staffForm.email.trim(),
+        email: staffForm.email.trim() || null,
         address: staffForm.address.trim() || null,
         phone_number: staffForm.phone.trim() || null,
         password: staffForm.password,
@@ -310,8 +361,9 @@ export default function UserManagement() {
     }
 
     const payload = {
+      full_name: editUserForm.fullName.trim(),
       username: editUserForm.username.trim(),
-      email: editUserForm.email.trim(),
+      email: editUserForm.email.trim() || null,
       address: editUserForm.address.trim() || null,
       phone_number: editUserForm.phone.trim() || null,
     }
@@ -319,6 +371,7 @@ export default function UserManagement() {
     const previousUserSnapshot = { ...selectedActionUser }
     const updatedUser = {
       ...selectedActionUser,
+      fullName: editUserForm.fullName.trim(),
       username: editUserForm.username.trim(),
       email: editUserForm.email.trim(),
       address: editUserForm.address.trim(),
@@ -498,8 +551,15 @@ export default function UserManagement() {
     setShowLogoutDevicesPrompt(true)
   }
 
+  const TOUR_STEPS: Step[] = [
+    { target: '.um-title', placement: 'bottom', skipBeacon: true, title: 'User Management', content: 'Create and manage staff accounts from here. Only admins can access this page.' },
+    { target: '.um-card', placement: 'top', skipBeacon: true, title: 'Staff Accounts', content: 'Each row is one staff member. You can add new staff, edit their details, reset passwords, or toggle their active status.' },
+    { target: '.um-logs-card', placement: 'top', skipBeacon: true, title: 'Activity Logs', content: 'A full audit trail of all user actions — logins, report submissions, profile changes, and more — is recorded here.' },
+  ]
+
   return (
     <div className="um-page">
+      <PageTour steps={TOUR_STEPS} storageKey="dermas_tour_done_um" />
       <h1 className="um-title">User Management</h1>
 
       <section className="um-card">
@@ -528,6 +588,7 @@ export default function UserManagement() {
           <table className="table um-table um-table-mobile-cards align-middle mb-0">
             <thead>
               <tr>
+                <th>Full Name</th>
                 <th>Username</th>
                 <th>Email</th>
                 <th>Address</th>
@@ -540,15 +601,16 @@ export default function UserManagement() {
             <tbody>
               {staffUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-muted py-4">
+                  <td colSpan={8} className="text-center text-muted py-4">
                     No staff records found.
                   </td>
                 </tr>
               ) : (
                 staffUsers.map((user) => (
                   <tr key={user.id}>
+                    <td data-label="Full Name">{user.fullName || '-'}</td>
                     <td data-label="Username">{user.username}</td>
-                    <td data-label="Email">{user.email}</td>
+                    <td data-label="Email">{user.email || '-'}</td>
                     <td data-label="Address">{user.address || '-'}</td>
                     <td data-label="Phone">{user.phone || '-'}</td>
                     <td data-label="Date Added">{formatDate(user.dateAdded)}</td>
@@ -598,6 +660,7 @@ export default function UserManagement() {
           <table className="table um-table um-table-mobile-cards align-middle mb-0">
             <thead>
               <tr>
+                <th>Full Name</th>
                 <th>Username</th>
                 <th>Email</th>
                 <th>Address</th>
@@ -610,15 +673,16 @@ export default function UserManagement() {
             <tbody>
               {adminUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-muted py-4">
+                  <td colSpan={8} className="text-center text-muted py-4">
                     No admin records found.
                   </td>
                 </tr>
               ) : (
                 adminUsers.map((user) => (
                   <tr key={user.id}>
+                    <td data-label="Full Name">{user.fullName || '-'}</td>
                     <td data-label="Username">{user.username}</td>
-                    <td data-label="Email">{user.email}</td>
+                    <td data-label="Email">{user.email || '-'}</td>
                     <td data-label="Address">{user.address || '-'}</td>
                     <td data-label="Phone">{user.phone || '-'}</td>
                     <td data-label="Date Added">{formatDate(user.dateAdded)}</td>
@@ -647,123 +711,268 @@ export default function UserManagement() {
         </div>
       </section>
 
-      {showAddStaff && (
-        <ModalForm
-          isOpen={showAddStaff}
-          icon="bi-person-plus"
-          title="Add New Staff"
-          subtitle="Fill all required fields to create a new staff account."
-          onClose={closeAddStaffModal}
-          onSubmit={handleSaveStaff}
-          isSubmitting={submittingStaff}
-          error={formError}
-        >
-          <div className="um-field-grid">
-            <label className="um-field">
-              <span>Username <strong>*</strong></span>
-              <div className="um-input-wrap">
-                <i className="bi bi-person" />
-                <input
-                  required
-                  type="text"
-                  value={staffForm.username}
-                  onChange={(event) => updateFormField('username', event.target.value)}
-                />
-              </div>
-            </label>
-
-            <label className="um-field">
-              <span>Email <strong>*</strong></span>
-              <div className="um-input-wrap">
-                <i className="bi bi-envelope" />
-                <input
-                  required
-                  type="email"
-                  value={staffForm.email}
-                  onChange={(event) => updateFormField('email', event.target.value)}
-                />
-              </div>
-            </label>
-
-            <label className="um-field">
-              <span>Address</span>
-              <div className="um-input-wrap">
-                <i className="bi bi-geo-alt" />
-                <input
-                  type="text"
-                  value={staffForm.address}
-                  onChange={(event) => updateFormField('address', event.target.value)}
-                />
-              </div>
-            </label>
-
-            <label className="um-field">
-              <span>Phone</span>
-              <div className="um-input-wrap">
-                <i className="bi bi-telephone" />
-                <input
-                  type="text"
-                  value={staffForm.phone}
-                  onChange={(event) => updateFormField('phone', event.target.value)}
-                />
-              </div>
-            </label>
-
-            <label className="um-field">
-              <span>Password <strong>*</strong></span>
-              <div className="um-input-wrap">
-                <i className="bi bi-lock" />
-                <input
-                  required
-                  minLength={6}
-                  type={showPassword.staffPassword ? 'text' : 'password'}
-                  value={staffForm.password}
-                  onChange={(event) => updateFormField('password', event.target.value)}
-                  autoComplete="new-password"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  inputMode="text"
-                  spellCheck={false}
-                />
-                <button
-                  type="button"
-                  className="um-eye-btn"
-                  onClick={() => togglePasswordVisibility('staffPassword')}
-                  aria-label={showPassword.staffPassword ? 'Hide password' : 'Show password'}
-                >
-                  <i className={`bi ${showPassword.staffPassword ? 'bi-eye-slash' : 'bi-eye'}`} />
-                </button>
-              </div>
-            </label>
-
-            <label className="um-field">
-              <span>Confirm Password <strong>*</strong></span>
-              <div className="um-input-wrap">
-                <i className="bi bi-shield-check" />
-                <input
-                  required
-                  minLength={6}
-                  type={showPassword.staffConfirmPassword ? 'text' : 'password'}
-                  value={staffForm.confirmPassword}
-                  onChange={(event) => updateFormField('confirmPassword', event.target.value)}
-                  autoComplete="new-password"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  inputMode="text"
-                  spellCheck={false}
-                />
-                <button
-                  type="button"
-                  className="um-eye-btn"
-                  onClick={() => togglePasswordVisibility('staffConfirmPassword')}
-                  aria-label={showPassword.staffConfirmPassword ? 'Hide password' : 'Show password'}
-                >
-                  <i className={`bi ${showPassword.staffConfirmPassword ? 'bi-eye-slash' : 'bi-eye'}`} />
-                </button>
-              </div>
-            </label>
+      {/* ── Global Activity Logs ──────────────────────────────── */}
+      <section className="um-card um-logs-card">
+        <div className="um-card-header">
+          <h2 className="um-section-title"><i className="bi bi-journal-text me-2" />Activity Logs</h2>
+          <div className="um-actions">
+            <select
+              className="um-logs-filter"
+              value={logsFilter}
+              onChange={(e) => setLogsFilter(e.target.value)}
+            >
+              <option value="all">All Actions</option>
+              <option value="login">Login</option>
+              <option value="create_user">Create User</option>
+              <option value="create_report">Create Report</option>
+              <option value="submit_report">Submit Report</option>
+              <option value="profile_update">Profile Update</option>
+              <option value="status_change">Status Change</option>
+              <option value="password_change">Password Change</option>
+            </select>
+            <button
+              type="button"
+              className="um-refresh-btn"
+              onClick={() => void fetchActivityLogs()}
+              disabled={logsLoading}
+              title="Refresh logs"
+            >
+              <i className={`bi bi-arrow-clockwise${logsLoading ? ' spin' : ''}`} />
+            </button>
           </div>
-        </ModalForm>
+        </div>
+
+        <div className="table-responsive">
+          <table className="table um-table um-logs-table align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Date &amp; Time</th>
+                <th>Action</th>
+                <th>User</th>
+                <th>Description</th>
+                <th>Device</th>
+                <th>Browser</th>
+                <th>IP Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logsLoading ? (
+                <tr><td colSpan={7} className="text-center text-muted py-4">Loading logs...</td></tr>
+              ) : activityLogs.filter((l) => logsFilter === 'all' || l.action === logsFilter).length === 0 ? (
+                <tr><td colSpan={7} className="text-center text-muted py-4">No activity logs found.</td></tr>
+              ) : (
+                activityLogs
+                  .filter((l) => logsFilter === 'all' || l.action === logsFilter)
+                  .map((log) => (
+                    <tr key={log.id}>
+                      <td data-label="Date & Time" className="um-log-time">
+                        {new Date(log.created_at).toLocaleString('en-US', {
+                          month: 'short', day: '2-digit', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit',
+                        })}
+                      </td>
+                      <td data-label="Action">
+                        <span className={`um-action-badge um-action-${log.action}`}>
+                          {ACTION_LABELS[log.action] ?? log.action}
+                        </span>
+                      </td>
+                      <td data-label="User">
+                        {log.user ? (
+                          <span>{log.user.full_name} <span className="um-log-role">({log.user.role})</span></span>
+                        ) : '—'}
+                      </td>
+                      <td data-label="Description">{log.description ?? '—'}</td>
+                      <td data-label="Device">
+                        <i className={`bi me-1 ${log.device_type === 'Mobile' ? 'bi-phone' : log.device_type === 'Tablet' ? 'bi-tablet' : 'bi-display'}`} />
+                        {log.device_type ?? '—'}
+                      </td>
+                      <td data-label="Browser">{log.browser ?? '—'}</td>
+                      <td data-label="IP">{log.ip_address ?? '—'}</td>
+                    </tr>
+                  ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {showAddStaff && (
+        <div className="um-modal-overlay" onClick={closeAddStaffModal}>
+          <div className="um-modal-card um-modal-card-add" onClick={(e) => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="um-modal-header">
+              <div className="um-modal-headline">
+                <h3><i className="bi bi-person-plus me-2" style={{ color: '#2563eb' }} />Add New Staff</h3>
+                <p>{staffStep === 1 ? 'Fill in the staff member\'s personal information.' : 'Set a secure password for this account.'}</p>
+              </div>
+              <button type="button" className="um-close-btn" onClick={closeAddStaffModal}><i className="bi bi-x-lg" /></button>
+            </div>
+
+            {/* Stepper bar */}
+            <div className="um-stepper">
+              <div className={`um-step ${staffStep >= 1 ? 'um-step-done' : ''}`}>
+                <div className="um-step-circle">{staffStep > 1 ? <i className="bi bi-check-lg" /> : '1'}</div>
+                <span>Personal Info</span>
+              </div>
+              <div className="um-step-line" />
+              <div className={`um-step ${staffStep >= 2 ? 'um-step-done' : ''}`}>
+                <div className="um-step-circle">2</div>
+                <span>Password</span>
+              </div>
+            </div>
+
+            {/* Step 1 — personal info */}
+            {staffStep === 1 && (
+              <div className="um-modal-body">
+                <div className="um-field-grid">
+                  <label className="um-field">
+                    <span>Full Name <strong>*</strong></span>
+                    <div className="um-input-wrap">
+                      <i className="bi bi-person-badge" />
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="e.g. Juan dela Cruz"
+                        value={staffForm.fullName}
+                        onChange={(e) => updateFormField('fullName', e.target.value)}
+                      />
+                    </div>
+                  </label>
+
+                  <label className="um-field">
+                    <span>Username <strong>*</strong></span>
+                    <div className="um-input-wrap">
+                      <i className="bi bi-person" />
+                      <input
+                        type="text"
+                        value={staffForm.username}
+                        onChange={(e) => updateFormField('username', e.target.value)}
+                      />
+                    </div>
+                  </label>
+
+                  <label className="um-field">
+                    <span>Email <span className="um-optional">(optional)</span></span>
+                    <div className="um-input-wrap">
+                      <i className="bi bi-envelope" />
+                      <input
+                        type="email"
+                        value={staffForm.email}
+                        onChange={(e) => updateFormField('email', e.target.value)}
+                      />
+                    </div>
+                  </label>
+
+                  <label className="um-field">
+                    <span>Phone <span className="um-optional">(optional)</span></span>
+                    <div className="um-input-wrap">
+                      <i className="bi bi-telephone" />
+                      <input
+                        type="text"
+                        value={staffForm.phone}
+                        onChange={(e) => updateFormField('phone', e.target.value)}
+                      />
+                    </div>
+                  </label>
+
+                  <label className="um-field" style={{ gridColumn: '1 / -1' }}>
+                    <span>Address <span className="um-optional">(optional)</span></span>
+                    <div className="um-input-wrap">
+                      <i className="bi bi-geo-alt" />
+                      <input
+                        type="text"
+                        value={staffForm.address}
+                        onChange={(e) => updateFormField('address', e.target.value)}
+                      />
+                    </div>
+                  </label>
+                </div>
+
+                {formError && <p className="um-error">{formError}</p>}
+
+                <div className="um-modal-footer">
+                  <button type="button" className="btn btn-outline-secondary btn-sm" onClick={closeAddStaffModal}>Cancel</button>
+                  <button type="button" className="btn btn-primary btn-sm" onClick={handleStepNext}>
+                    Next <i className="bi bi-arrow-right ms-1" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2 — password */}
+            {staffStep === 2 && (
+              <form onSubmit={handleSaveStaff}>
+                <div className="um-modal-body">
+                  {/* Summary chip */}
+                  <div className="um-step2-summary">
+                    <i className="bi bi-person-circle" />
+                    <span>{staffForm.fullName}</span>
+                    <span className="um-step2-username">@{staffForm.username}</span>
+                  </div>
+
+                  <div className="um-field-grid" style={{ gridTemplateColumns: '1fr' }}>
+                    <label className="um-field">
+                      <span>Password <strong>*</strong></span>
+                      <div className="um-input-wrap">
+                        <i className="bi bi-lock" />
+                        <input
+                          autoFocus
+                          required
+                          minLength={6}
+                          type={showPassword.staffPassword ? 'text' : 'password'}
+                          value={staffForm.password}
+                          onChange={(e) => updateFormField('password', e.target.value)}
+                          autoComplete="new-password"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          placeholder="Min. 6 characters"
+                        />
+                        <button type="button" className="um-eye-btn" onClick={() => togglePasswordVisibility('staffPassword')}>
+                          <i className={`bi ${showPassword.staffPassword ? 'bi-eye-slash' : 'bi-eye'}`} />
+                        </button>
+                      </div>
+                    </label>
+
+                    <label className="um-field">
+                      <span>Confirm Password <strong>*</strong></span>
+                      <div className="um-input-wrap">
+                        <i className="bi bi-shield-check" />
+                        <input
+                          required
+                          minLength={6}
+                          type={showPassword.staffConfirmPassword ? 'text' : 'password'}
+                          value={staffForm.confirmPassword}
+                          onChange={(e) => updateFormField('confirmPassword', e.target.value)}
+                          autoComplete="new-password"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          placeholder="Re-enter password"
+                        />
+                        <button type="button" className="um-eye-btn" onClick={() => togglePasswordVisibility('staffConfirmPassword')}>
+                          <i className={`bi ${showPassword.staffConfirmPassword ? 'bi-eye-slash' : 'bi-eye'}`} />
+                        </button>
+                      </div>
+                    </label>
+                  </div>
+
+                  {formError && <p className="um-error">{formError}</p>}
+
+                  <div className="um-modal-footer">
+                    <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => { setStaffStep(1); setFormError('') }}>
+                      <i className="bi bi-arrow-left me-1" />Back
+                    </button>
+                    <button type="submit" className="btn btn-primary btn-sm" disabled={submittingStaff}>
+                      {submittingStaff ? <><span className="spinner-border spinner-border-sm me-1" />Creating...</> : <><i className="bi bi-person-check me-1" />Create Account</>}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
       )}
 
       {showActionPanel && selectedActionUser && (
@@ -771,7 +980,8 @@ export default function UserManagement() {
           <div className="um-mini-backdrop" onClick={closeActionModal} />
           <section className="um-mini-modal" role="dialog" aria-modal="true" aria-label="Account quick actions">
             <aside className="um-mini-nav">
-              <h4>{selectedActionUser.username}</h4>
+              <h4>{selectedActionUser.fullName || selectedActionUser.username}</h4>
+              <p style={{ fontSize: 11, color: '#9ca3af', margin: '-6px 0 8px', fontWeight: 400 }}>@{selectedActionUser.username}</p>
               <button
                 type="button"
                 className={`um-mini-nav-btn${actionTab === 'profile' ? ' active' : ''}`}
@@ -812,7 +1022,20 @@ export default function UserManagement() {
                 <form className="um-mini-section" onSubmit={handleSaveUserEdits}>
                   <div className="um-mini-edit-grid">
                     <label className="um-field">
-                      <span>Username</span>
+                      <span>Full Name <strong>*</strong></span>
+                      <div className="um-input-wrap">
+                        <i className="bi bi-person-badge" />
+                        <input
+                          type="text"
+                          value={editUserForm.fullName}
+                          onChange={(event) => updateEditField('fullName', event.target.value)}
+                          required
+                        />
+                      </div>
+                    </label>
+
+                    <label className="um-field">
+                      <span>Username <strong>*</strong></span>
                       <div className="um-input-wrap">
                         <i className="bi bi-person" />
                         <input
@@ -832,7 +1055,6 @@ export default function UserManagement() {
                           type="email"
                           value={editUserForm.email}
                           onChange={(event) => updateEditField('email', event.target.value)}
-                          required
                         />
                       </div>
                     </label>
@@ -1000,12 +1222,20 @@ export default function UserManagement() {
                 <div className="um-mini-section">
                   <div className="um-log-list">
                     {selectedActionLogs.length === 0 ? (
-                      <p className="um-log-empty">No logs available yet.</p>
+                      <p className="um-log-empty">No activity logs found for this user.</p>
                     ) : (
-                      selectedActionLogs.map((entry, index) => (
-                        <div key={`${entry}-${index}`} className="um-log-item">
-                          <i className="bi bi-clock-history" />
-                          <span>{entry}</span>
+                      selectedActionLogs.map((log) => (
+                        <div key={log.id} className="um-log-item">
+                          <i className={`bi ${ACTION_ICONS[log.action] ?? 'bi-activity'}`} />
+                          <div className="um-log-item-body">
+                            <span className="um-log-desc">{log.description ?? '—'}</span>
+                            <span className="um-log-meta">
+                              {new Date(log.created_at).toLocaleString('en-US', { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              {log.device_type ? ` · ${log.device_type}` : ''}
+                              {log.browser ? ` · ${log.browser}` : ''}
+                              {log.ip_address ? ` · ${log.ip_address}` : ''}
+                            </span>
+                          </div>
                         </div>
                       ))
                     )}

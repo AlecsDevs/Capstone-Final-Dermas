@@ -1,6 +1,35 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import api from '../api/axios'
-import { ReportDocumentModal, type ReportDocumentData } from '../pages/admin/zone-report/ReportDocumentModal'
+import { ReportDocumentModal, type ReportDocumentData } from '../pages/admin/zone-report/components/ReportDocumentModal'
+import { fetchNabuaWeather } from '../api/weather'
+import type { CurrentWeather } from '../api/weather'
+import nabuaLogoUrl from '../assets/nabua_logo.png?url'
+import mdrrmoLogoUrl from '../assets/Mdrrmo_logo.png?url'
+
+function weatherIcon(code: number): string {
+  if (code === 0)  return 'bi-sun-fill'
+  if (code <= 3)   return 'bi-cloud-sun-fill'
+  if (code <= 48)  return 'bi-cloud-fog2-fill'
+  if (code <= 55)  return 'bi-cloud-drizzle-fill'
+  if (code <= 65)  return 'bi-cloud-rain-fill'
+  if (code <= 82)  return 'bi-cloud-rain-heavy-fill'
+  return               'bi-cloud-lightning-rain-fill'
+}
+
+function weatherLabel(code: number, temp: number): string {
+  const hot  = temp >= 33
+  const warm = temp >= 30
+  if (code === 0)  return hot ? 'Hot & Sunny' : warm ? 'Sunny' : 'Clear'
+  if (code <= 3)   return 'Partly Cloudy'
+  if (code <= 48)  return 'Foggy'
+  if (code <= 55)  return 'Drizzle'
+  if (code <= 65)  return 'Rain'
+  if (code <= 82)  return 'Heavy Rain'
+  if (code <= 94)  return 'Thunderstorm'
+  return 'Heavy Storm'
+}
 
 interface TopBarProps {
   onToggleSidebar: () => void
@@ -8,15 +37,131 @@ interface TopBarProps {
   onToggleDarkMode: () => void
 }
 
+interface DailyReportMeta {
+  date: string
+  total: number
+  by_nature: Record<string, number>
+}
+
 interface NotificationItem {
   id: number
-  report_id: number
+  notification_type?: 'report_submitted' | 'daily_report' | string
+  report_id: number | null
   actor_username: string
   report_type: 'Emergency' | 'Incident' | string
   client_name: string | null
   submitted_at: string
   is_read: boolean
   read_at: string | null
+  metadata?: DailyReportMeta | null
+}
+
+const loadImgBase64 = (url: string): Promise<string> =>
+  new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0)
+      resolve(canvas.toDataURL('image/png'))
+    }
+    img.onerror = () => resolve('')
+    img.src = url
+  })
+
+async function buildDailyReportDoc(meta: DailyReportMeta): Promise<jsPDF> {
+  const [nabuaB64, mdrrmoB64] = await Promise.all([
+    loadImgBase64(nabuaLogoUrl).catch(() => ''),
+    loadImgBase64(mdrrmoLogoUrl).catch(() => ''),
+  ])
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const W = doc.internal.pageSize.getWidth()
+  const dateLabel = new Date(meta.date + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  })
+
+  const logoH = 18, logoW = 18
+  if (nabuaB64)  doc.addImage(nabuaB64,  'PNG', 10, 6, logoW, logoH)
+  if (mdrrmoB64) doc.addImage(mdrrmoB64, 'PNG', W - 10 - logoW, 6, logoW, logoH)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(15, 40, 90)
+  doc.text('Republic of the Philippines', W / 2, 9, { align: 'center' })
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Municipality of Nabua, Camarines Sur', W / 2, 14, { align: 'center' })
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.text('Municipal Disaster Risk Reduction and Management Office', W / 2, 19, { align: 'center' })
+  doc.setDrawColor(255, 200, 0)
+  doc.setLineWidth(0.8)
+  doc.line(10, 26, W - 10, 26)
+  doc.setLineWidth(0.4)
+  doc.line(10, 27.5, W - 10, 27.5)
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  doc.setTextColor(15, 40, 90)
+  doc.text('DAILY EMERGENCY REPORT', W / 2, 38, { align: 'center' })
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(80, 80, 80)
+  doc.text(dateLabel, W / 2, 45, { align: 'center' })
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(15, 40, 90)
+  doc.text(`Total Emergency Reports Today: ${meta.total}`, 14, 56)
+
+  if (meta.total === 0) {
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(10)
+    doc.setTextColor(120, 120, 120)
+    doc.text('No emergency reports were recorded today.', 14, 65)
+  } else {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(15, 40, 90)
+    doc.text('Breakdown by Nature of Call:', 14, 65)
+
+    const rows = Object.entries(meta.by_nature).map(([nature, count]) => [nature, String(count)])
+    autoTable(doc, {
+      startY: 69,
+      head: [['Nature of Call', 'Count']],
+      body: rows,
+      theme: 'striped',
+      headStyles: { fillColor: [15, 40, 90], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      bodyStyles: { fontSize: 9, textColor: [40, 40, 40] },
+      columnStyles: { 1: { halign: 'center', cellWidth: 25 } },
+      margin: { left: 14, right: 14 },
+    })
+  }
+
+  const pageCount = doc.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(7)
+    doc.setTextColor(150)
+    doc.text(`Generated: ${new Date().toLocaleString()}  |  Page ${i} of ${pageCount}`, W / 2, 290, { align: 'center' })
+  }
+
+  return doc
+}
+
+async function downloadDailyReportPdf(meta: DailyReportMeta): Promise<void> {
+  const doc = await buildDailyReportDoc(meta)
+  doc.save(`Daily_Emergency_Report_${meta.date}.pdf`)
+}
+
+async function viewDailyReportPdf(meta: DailyReportMeta): Promise<string> {
+  const doc = await buildDailyReportDoc(meta)
+  return doc.output('bloburl') as unknown as string
 }
 
 const formatTime = (value: string) => {
@@ -32,6 +177,21 @@ const formatTime = (value: string) => {
 }
 
 export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarProps) => {
+  const [nabuaWeather, setNabuaWeather] = useState<CurrentWeather | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const data = await fetchNabuaWeather()
+        if (!cancelled) setNabuaWeather(data.current)
+      } catch { /* silently ignore — topbar widget is non-critical */ }
+    }
+    load()
+    const interval = setInterval(load, 15 * 60 * 1000) // refresh every 15 min
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [])
+
   const [isNotifOpen, setIsNotifOpen] = useState(false)
   const [isLoadingNotifs, setIsLoadingNotifs] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -48,6 +208,9 @@ export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarPr
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
   const [isReportLoading, setIsReportLoading] = useState(false)
   const [selectedReport, setSelectedReport] = useState<ReportDocumentData | null>(null)
+  const [dailyPdfUrl, setDailyPdfUrl] = useState<string | null>(null)
+  const [dailyPdfMeta, setDailyPdfMeta] = useState<DailyReportMeta | null>(null)
+  const [dailyPdfLoading, setDailyPdfLoading] = useState(false)
   const notifRef = useRef<HTMLDivElement | null>(null)
   const hasHydratedNotificationsRef = useRef(false)
   const seenNotificationIdsRef = useRef<Set<number>>(new Set())
@@ -276,6 +439,16 @@ export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarPr
           MDRRMO Report System
         </div>
 
+        {/* Nabua live weather chip */}
+        {nabuaWeather && (
+          <div className="topbar-weather">
+            <i className={`bi ${weatherIcon(nabuaWeather.weathercode)} topbar-weather-icon`} />
+            <span className="topbar-weather-temp">{nabuaWeather.temperature}°C</span>
+            <span className="topbar-weather-label">{weatherLabel(nabuaWeather.weathercode, nabuaWeather.temperature)}</span>
+            <span className="topbar-weather-loc">· Nabua</span>
+          </div>
+        )}
+
         {/* Spacer */}
         <div className="topbar-spacer" />
 
@@ -322,42 +495,127 @@ export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarPr
                   ) : notifications.length === 0 ? (
                     <p className="notif-empty">No notifications yet.</p>
                   ) : (
-                    notifications.map((item) => (
-                      <button
-                        key={item.id}
-                        className={`notif-item notif-item-btn${item.is_read ? '' : ' unread'}`}
-                        type="button"
-                        onClick={() => openNotificationReport(item)}
-                      >
-                        <div className="notif-item-row">
-                          <span className="notif-item-icon" aria-hidden="true">
-                            <i className={resolveTypeIconClass(item.report_type)} />
-                          </span>
+                    notifications.map((item) => {
+                      const isDailyReport = item.notification_type === 'daily_report'
+                      const meta = item.metadata as DailyReportMeta | null | undefined
 
-                          <div className="notif-item-content">
-                            <p className="notif-message mb-1">
-                              <strong>{item.actor_username}</strong> submitted a <strong>{item.report_type}</strong> report
-                              {item.client_name ? (
-                                <>
-                                  {' '}
-                                  for <strong>{item.client_name}</strong>
-                                </>
-                              ) : (
-                                <> with no client name</>
-                              )}
-                              .
-                            </p>
-
-                            <div className="notif-item-meta">
-                              <span className={`notif-read-pill ${item.is_read ? 'read' : 'unread'}`}>
-                                {item.is_read ? 'Read' : 'Unread'}
+                      if (isDailyReport) {
+                        return (
+                          <div
+                            key={item.id}
+                            className={`notif-item notif-daily${item.is_read ? '' : ' unread'}`}
+                          >
+                            <div className="notif-item-row">
+                              <span className="notif-item-icon notif-daily-icon" aria-hidden="true">
+                                <i className="bi bi-clipboard2-pulse-fill" />
                               </span>
-                              <small className="notif-time">{formatTime(item.submitted_at)}</small>
+                              <div className="notif-item-content">
+                                <p className="notif-message mb-1">
+                                  <strong>Daily Emergency Report</strong>
+                                  {meta ? (
+                                    <>
+                                      {' — '}
+                                      {new Date(meta.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                      {' · '}
+                                      <strong>{meta.total}</strong> report{meta.total !== 1 ? 's' : ''}
+                                    </>
+                                  ) : null}
+                                </p>
+                                <div className="notif-item-meta">
+                                  <span className={`notif-read-pill ${item.is_read ? 'read' : 'unread'}`}>
+                                    {item.is_read ? 'Read' : 'Unread'}
+                                  </span>
+                                  <small className="notif-time">{formatTime(item.submitted_at)}</small>
+                                </div>
+                                {meta && (
+                                  <div className="notif-pdf-actions">
+                                    <button
+                                      type="button"
+                                      className="notif-pdf-btn notif-view-btn"
+                                      disabled={dailyPdfLoading && dailyPdfMeta?.date === meta.date}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setDailyPdfMeta(meta)
+                                        setDailyPdfLoading(true)
+                                        void viewDailyReportPdf(meta).then((url) => {
+                                          setDailyPdfUrl(url)
+                                          setDailyPdfLoading(false)
+                                        }).catch(() => setDailyPdfLoading(false))
+                                        if (!item.is_read) {
+                                          void api.post('/notifications/mark-read', { ids: [item.id] })
+                                          setNotifications((prev) =>
+                                            prev.map((n) => n.id === item.id ? { ...n, is_read: true } : n)
+                                          )
+                                          setUnreadCount((c) => Math.max(0, c - 1))
+                                        }
+                                      }}
+                                    >
+                                      <i className="bi bi-eye me-1" />
+                                      {dailyPdfLoading && dailyPdfMeta?.date === meta.date ? 'Loading...' : 'View'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="notif-pdf-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        void downloadDailyReportPdf(meta)
+                                        if (!item.is_read) {
+                                          void api.post('/notifications/mark-read', { ids: [item.id] })
+                                          setNotifications((prev) =>
+                                            prev.map((n) => n.id === item.id ? { ...n, is_read: true } : n)
+                                          )
+                                          setUnreadCount((c) => Math.max(0, c - 1))
+                                        }
+                                      }}
+                                    >
+                                      <i className="bi bi-download me-1" />
+                                      Download
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </button>
-                    ))
+                        )
+                      }
+
+                      return (
+                        <button
+                          key={item.id}
+                          className={`notif-item notif-item-btn${item.is_read ? '' : ' unread'}`}
+                          type="button"
+                          onClick={() => openNotificationReport(item)}
+                        >
+                          <div className="notif-item-row">
+                            <span className="notif-item-icon" aria-hidden="true">
+                              <i className={resolveTypeIconClass(item.report_type)} />
+                            </span>
+
+                            <div className="notif-item-content">
+                              <p className="notif-message mb-1">
+                                <strong>{item.actor_username}</strong> submitted a <strong>{item.report_type}</strong> report
+                                {item.client_name ? (
+                                  <>
+                                    {' '}
+                                    for <strong>{item.client_name}</strong>
+                                  </>
+                                ) : (
+                                  <> with no client name</>
+                                )}
+                                .
+                              </p>
+
+                              <div className="notif-item-meta">
+                                <span className={`notif-read-pill ${item.is_read ? 'read' : 'unread'}`}>
+                                  {item.is_read ? 'Read' : 'Unread'}
+                                </span>
+                                <small className="notif-time">{formatTime(item.submitted_at)}</small>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })
                   )}
                 </div>
               </div>
@@ -373,6 +631,45 @@ export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarPr
 
       {isReportModalOpen && (
         <ReportDocumentModal report={selectedReport} isLoading={isReportLoading} onClose={closeReportModal} />
+      )}
+
+      {dailyPdfUrl && dailyPdfMeta && (
+        <div className="daily-pdf-backdrop" onClick={() => { setDailyPdfUrl(null); setDailyPdfMeta(null) }}>
+          <div className="daily-pdf-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="daily-pdf-header">
+              <div className="daily-pdf-title">
+                <i className="bi bi-clipboard2-pulse-fill me-2" style={{ color: '#2563eb' }} />
+                <span>Daily Emergency Report — {new Date(dailyPdfMeta.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+              </div>
+              <div className="daily-pdf-actions-header">
+                <button
+                  type="button"
+                  className="daily-pdf-dl-btn"
+                  onClick={() => void downloadDailyReportPdf(dailyPdfMeta)}
+                  title="Download PDF"
+                >
+                  <i className="bi bi-download me-1" />
+                  Download
+                </button>
+                <button
+                  type="button"
+                  className="daily-pdf-close"
+                  onClick={() => { setDailyPdfUrl(null); setDailyPdfMeta(null) }}
+                  aria-label="Close"
+                >
+                  <i className="bi bi-x-lg" />
+                </button>
+              </div>
+            </div>
+            <div className="daily-pdf-body">
+              <iframe
+                src={dailyPdfUrl}
+                title="Daily Emergency Report"
+                className="daily-pdf-iframe"
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       {isAlertsModalOpen && (

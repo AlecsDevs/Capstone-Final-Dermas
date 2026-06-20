@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import adminAvatar from "../assets/Mdrrmo_logo.png";
 import { useAuth } from "../context/AuthContext";
 
 const REPORT_ZONES = [
-  { name: 'Real Road', color: '#2563eb' },
+  { name: 'Rail Road', color: '#2563eb' },
   { name: 'Poblacion', color: '#15803d' },
   { name: 'Mountain Area', color: '#f59e0b' },
   { name: 'River Side', color: '#06b6d4' },
@@ -30,7 +30,11 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
   const reportsRouteActive        =
     location.pathname === reportsBasePath || location.pathname.startsWith(`${reportsBasePath}/`)
   const [reportsOpen, setReportsOpen] = useState(reportsRouteActive)
-  const reportsExpanded = reportsOpen || reportsRouteActive
+
+  // Auto-open when navigating into the reports section
+  useEffect(() => {
+    if (reportsRouteActive) setReportsOpen(true)
+  }, [reportsRouteActive])
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(`${path}/`) ? "active" : "";
@@ -66,14 +70,14 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
             className={`sidebar-dropdown-toggle${reportsOpen ? ' open' : ''}`}
             onClick={() => setReportsOpen(prev => !prev)}
             aria-label="Toggle report zones"
-            aria-expanded={reportsExpanded}
+            aria-expanded={reportsOpen}
             aria-controls="reports-submenu"
           >
-            <i className={`bi bi-chevron-down sidebar-dropdown-chevron${reportsExpanded ? ' open' : ''}`}></i>
+            <i className={`bi bi-chevron-down sidebar-dropdown-chevron${reportsOpen ? ' open' : ''}`}></i>
           </button>
         </div>
 
-        {reportsExpanded && (
+        {reportsOpen && (
           <div id="reports-submenu" className="sidebar-submenu">
             <div className="sidebar-zone-list">
               {REPORT_ZONES.map(zone => {
@@ -104,6 +108,9 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
       <Link to="/admin/documents" className={isActive("/admin/documents")} onClick={handleLinkClick}>
         <i className="bi bi-folder-fill"></i> Documents
       </Link>
+      <Link to="/admin/trash" className={isActive("/admin/trash")} onClick={handleLinkClick}>
+        <i className="bi bi-trash"></i> Trash
+      </Link>
     </>
   );
 
@@ -128,14 +135,14 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
             className={`sidebar-dropdown-toggle${reportsOpen ? ' open' : ''}`}
             onClick={() => setReportsOpen(prev => !prev)}
             aria-label="Toggle report zones"
-            aria-expanded={reportsExpanded}
+            aria-expanded={reportsOpen}
             aria-controls="reports-submenu"
           >
-            <i className={`bi bi-chevron-down sidebar-dropdown-chevron${reportsExpanded ? ' open' : ''}`}></i>
+            <i className={`bi bi-chevron-down sidebar-dropdown-chevron${reportsOpen ? ' open' : ''}`}></i>
           </button>
         </div>
 
-        {reportsExpanded && (
+        {reportsOpen && (
           <div id="reports-submenu" className="sidebar-submenu">
             <div className="sidebar-zone-list">
               {REPORT_ZONES.map(zone => {
@@ -163,21 +170,42 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
       <Link to="/staff/documents" className={isActive("/staff/documents")} onClick={handleLinkClick}>
         <i className="bi bi-folder-fill"></i> Documents
       </Link>
+      <Link to="/staff/trash" className={isActive("/staff/trash")} onClick={handleLinkClick}>
+        <i className="bi bi-trash"></i> Trash
+      </Link>
     </>
   );
 
   return (
     <>
       <aside className={`sidebar${isOpen ? ' sidebar-open' : ''}`}>
+        {/* Close button — mobile only */}
+        {onClose && (
+          <button
+            type="button"
+            className="sidebar-mobile-close d-lg-none"
+            onClick={onClose}
+            aria-label="Close sidebar"
+          >
+            <i className="bi bi-x-lg" />
+          </button>
+        )}
         <img src={adminAvatar} alt="Avatar" className="avatar mt-4" />
         <div className="admin-label text-center">MDRRMO</div>
         <p className="sidebar-role">{role === 'admin' ? 'Admin' : 'Staff'}</p>
 
-        <nav className="mt-3 w-100 flex-grow-1">
+        <nav className="mt-3 w-100 flex-grow-1" id="tour-sidebar-nav">
           {role === 'admin' ? adminLinks : staffLinks}
         </nav>
 
         <div className="sidebar-footer w-100">
+          <Link
+            to={`/${role}/about`}
+            className={isActive(`/${role}/about`)}
+            onClick={handleLinkClick}
+          >
+            <i className="bi bi-info-circle"></i> About
+          </Link>
           <button onClick={() => setShowModal(true)}>
             <i className="bi bi-box-arrow-right"></i> Logout
           </button>

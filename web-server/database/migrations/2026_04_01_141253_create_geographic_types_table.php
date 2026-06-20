@@ -18,7 +18,7 @@ return new class extends Migration
         });
 
         DB::table('geographic_types')->insertOrIgnore([
-            ['id' => 1, 'name' => 'Real Road'],
+            ['id' => 1, 'name' => 'Rail Road'],
             ['id' => 2, 'name' => 'Poblacion'],
             ['id' => 3, 'name' => 'Mountain Area'],
             ['id' => 4, 'name' => 'River Side'],

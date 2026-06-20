@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
+use App\Models\AmbulanceTransfer;
 use App\Models\Client;
 use App\Models\ClientAssessment;
 use App\Models\EmergencyDetail;
@@ -34,12 +36,12 @@ class ReportController extends Controller
         $normalizedUsername = mb_strtolower($username);
 
         $query = Report::query()
-            ->select(['id', 'report_type', 'geographic_type_id', 'date_reported', 'time_reported', 'status'])
+            ->select(['id', 'report_type', 'geographic_type_id', 'date_reported', 'time_reported', 'status', 'latitude', 'longitude'])
             ->with([
                 'geographicType:id,name',
-                'clients:id,report_id,full_name,age,gender,incident_address',
-                'emergencyDetails:report_id,type_of_emergency,mechanism_of_injury,nature_of_illness,dispatcher_name,incident_time',
-                'incidentDetails:report_id,type_of_hazard,nature_of_call,dispatcher_name,incident_time',
+                'clients:id,report_id,full_name,age,gender,incident_address,accident_type',
+                'emergencyDetails:report_id,type_of_emergency,mechanism_of_injury,nature_of_illness,incident_time',
+                'incidentDetails:report_id,type_of_hazard,nature_of_call,severity_level,incident_barangay,incident_time',
                 'responders:id,report_id,name,user_id',
             ])
             ->whereHas('responders', function ($responderQuery) use ($userId, $normalizedUsername) {
@@ -83,13 +85,14 @@ class ReportController extends Controller
 
         $reports = Cache::remember($cacheKey, now()->addSeconds(20), function () use ($validated, $limit) {
             $query = Report::query()
-                ->select(['id', 'report_type', 'geographic_type_id', 'date_reported', 'time_reported', 'status'])
+                ->select(['id', 'report_type', 'geographic_type_id', 'date_reported', 'time_reported', 'status', 'latitude', 'longitude'])
                 ->with([
                     'geographicType:id,name',
-                    'clients:id,report_id,full_name,age,gender,incident_address',
-                    'emergencyDetails:report_id,type_of_emergency,mechanism_of_injury,nature_of_illness,dispatcher_name,incident_time',
-                    'incidentDetails:report_id,type_of_hazard,nature_of_call,dispatcher_name,incident_time',
+                    'clients:id,report_id,full_name,age,gender,incident_address,accident_type',
+                    'emergencyDetails:report_id,type_of_emergency,mechanism_of_injury,nature_of_illness,incident_time',
+                    'incidentDetails:report_id,type_of_hazard,nature_of_call,severity_level,incident_barangay,incident_time',
                     'responders:id,report_id,name',
+                    'ambulanceTransfer:id,report_id,dispatcher,responders,ambulance_driver',
                 ])
                 ->orderByDesc('date_reported')
                 ->orderByDesc('time_reported');
@@ -123,10 +126,11 @@ class ReportController extends Controller
         $query = Report::query()
             ->with([
                 'geographicType:id,name',
-                'clients:id,report_id,full_name,age,gender,incident_address',
-                'emergencyDetails:report_id,type_of_emergency,mechanism_of_injury,nature_of_illness,dispatcher_name,incident_time',
-                'incidentDetails:report_id,type_of_hazard,nature_of_call,dispatcher_name,incident_time',
+                'clients:id,report_id,full_name,age,gender,incident_address,accident_type',
+                'emergencyDetails:report_id,type_of_emergency,mechanism_of_injury,nature_of_illness,incident_time',
+                'incidentDetails:report_id,type_of_hazard,nature_of_call,severity_level,incident_barangay,incident_time',
                 'responders:id,report_id,name,user_id',
+                'ambulanceTransfer:id,report_id,dispatcher,responders,ambulance_driver',
             ])
             ->orderByDesc('date_reported')
             ->orderByDesc('time_reported');
@@ -166,6 +170,8 @@ class ReportController extends Controller
             'date_reported' => ['required', 'date'],
             'time_reported' => ['required', 'date_format:H:i'],
             'status' => ['sometimes', Rule::in(['Draft', 'Submitted', 'Approved', 'Rejected'])],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
         $report = Report::create([
@@ -174,7 +180,14 @@ class ReportController extends Controller
             'date_reported' => $validated['date_reported'],
             'time_reported' => $validated['time_reported'],
             'status' => $validated['status'] ?? 'Draft',
+            'latitude' => $validated['latitude'] ?? null,
+            'longitude' => $validated['longitude'] ?? null,
         ]);
+
+        ActivityLog::record($request, 'create_report',
+            optional($request->user())->full_name . " created a {$validated['report_type']} report",
+            ['report_id' => $report->id, 'report_type' => $validated['report_type']]
+        );
 
         return response()->json([
             'message' => 'Draft report created successfully.',
@@ -193,6 +206,8 @@ class ReportController extends Controller
             'geographic_type_id' => ['sometimes', 'integer', 'exists:geographic_types,id'],
             'date_reported' => ['sometimes', 'date'],
             'time_reported' => ['sometimes', 'date_format:H:i'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
         if (!empty($validated)) {
@@ -207,22 +222,64 @@ class ReportController extends Controller
 
     public function destroy(Report $report): JsonResponse
     {
+        $report->delete(); // soft delete — moves to Trash, photos kept for restore
+
+        return response()->json([
+            'message' => 'Report moved to Trash. It will be permanently deleted after 30 days.',
+        ]);
+    }
+
+    public function trash(Request $request): JsonResponse
+    {
+        $reports = Report::onlyTrashed()
+            ->with([
+                'geographicType:id,name',
+                'clients:id,report_id,full_name,age,gender',
+                'emergencyDetails:report_id,type_of_emergency,nature_of_illness',
+                'incidentDetails:report_id,nature_of_call,type_of_hazard',
+                'responders:id,report_id,name',
+            ])
+            ->orderByDesc('deleted_at')
+            ->get()
+            ->map(function (Report $r) {
+                $daysLeft = $r->deleted_at
+                    ? max(0, 30 - (int) now()->diffInDays($r->deleted_at))
+                    : 30;
+                $r->days_until_permanent_delete = $daysLeft;
+                return $r;
+            });
+
+        return response()->json($reports);
+    }
+
+    public function restore(Request $request, int $id): JsonResponse
+    {
+        $report = Report::onlyTrashed()->findOrFail($id);
+        $report->restore();
+
+        return response()->json(['message' => 'Report restored successfully.']);
+    }
+
+    public function forceDelete(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        if ($user->role !== 'admin') {
+            return response()->json(['message' => 'Only admins can permanently delete reports.'], 403);
+        }
+
+        $report = Report::onlyTrashed()->findOrFail($id);
         $report->load('photos');
 
         foreach ($report->photos as $photo) {
             $path = (string) $photo->photo_path;
-
             if (str_starts_with($path, '/storage/')) {
-                $publicRelativePath = substr($path, strlen('/storage/'));
-                Storage::disk('public')->delete($publicRelativePath);
+                Storage::disk('public')->delete(substr($path, strlen('/storage/')));
             }
         }
 
-        $report->delete();
+        $report->forceDelete();
 
-        return response()->json([
-            'message' => 'Report deleted successfully.',
-        ]);
+        return response()->json(['message' => 'Report permanently deleted.']);
     }
 
     public function upsertClients(Request $request, Report $report): JsonResponse
@@ -236,6 +293,7 @@ class ReportController extends Controller
             'clients.*.contact_number' => ['nullable', 'string', 'max:20'],
             'clients.*.permanent_address' => ['nullable', 'string'],
             'clients.*.incident_address' => ['nullable', 'string'],
+            'clients.*.accident_type'    => ['nullable', 'string', 'max:100'],
         ]);
 
         DB::transaction(function () use ($report, $validated) {
@@ -264,9 +322,9 @@ class ReportController extends Controller
             'mechanism_of_injury' => ['nullable', 'string', 'max:150'],
             'nature_of_illness' => ['nullable', 'string', 'max:150'],
             'type_of_emergency' => ['nullable', 'string', 'max:100'],
+            'nature_of_call' => ['nullable', Rule::in(['Emergency', 'Conduction', 'Search and Rescue'])],
             'incident_date' => ['required', 'date'],
             'incident_time' => ['required', 'date_format:H:i'],
-            'dispatcher_name' => ['required', 'string', 'max:100'],
         ]);
 
         EmergencyDetail::query()->updateOrCreate(
@@ -289,11 +347,14 @@ class ReportController extends Controller
         }
 
         $validated = $request->validate([
-            'type_of_hazard' => ['required', Rule::in(['Flood', 'Earthquake', 'Typhoon', 'Landslide'])],
-            'nature_of_call' => ['required', Rule::in(['Emergency', 'Coordination', 'Search and Rescue'])],
-            'incident_date' => ['required', 'date'],
-            'incident_time' => ['required', 'date_format:H:i'],
-            'dispatcher_name' => ['required', 'string', 'max:100'],
+            'type_of_incident'  => ['nullable', 'string', 'max:100'],
+            'type_of_hazard'    => ['required', Rule::in(['Flood', 'Earthquake', 'Typhoon', 'Landslide', 'Tsunami', 'Volcanic Eruption'])],
+            'severity_level'    => ['nullable', Rule::in(['Low', 'Moderate', 'High', 'Critical'])],
+            'incident_barangay' => ['nullable', 'string', 'max:255'],
+            'nature_of_call'    => ['nullable', Rule::in(['Emergency', 'Conduction', 'Search and Rescue'])],
+            'incident_date'     => ['required', 'date'],
+            'incident_time'     => ['required', 'date_format:H:i'],
+            'dispatcher_name'   => ['nullable', 'string', 'max:100'],
         ]);
 
         IncidentDetail::query()->updateOrCreate(
@@ -324,45 +385,86 @@ class ReportController extends Controller
 
         $validated = $request->validate([
             'chief_complaint' => ['nullable', 'string'],
-            'assessment' => ['nullable', 'string'],
-            'airway' => ['nullable', 'string', 'max:255'],
-            'breathing' => ['nullable', 'string', 'max:255'],
-            'circulation_support' => ['nullable', 'string', 'max:255'],
-            'circulation' => ['nullable', 'string', 'max:255'],
-            'wound_care' => ['nullable', 'string', 'max:255'],
-            'miscellaneous' => ['nullable', 'string', 'max:255'],
-            'history_of_coronary_disease' => ['nullable', Rule::in(['Yes', 'No', 'Undetermined'])],
-            'coronary' => ['nullable', Rule::in(['Yes', 'No', 'Undetermined'])],
-            'collapse_witness' => ['nullable', Rule::in(['Yes', 'No'])],
-            'time_of_collapse' => ['nullable', 'date_format:H:i'],
-            'start_of_cpr' => ['nullable', 'date_format:H:i'],
-            'defibrillation_time' => ['nullable', 'date_format:H:i'],
-            'cpr_duration' => ['nullable', 'integer', 'min:0', 'max:300'],
-            'rosc' => ['nullable', 'string', 'max:255'],
-            'transferred_to_hospital' => ['nullable', 'string', 'max:255'],
+            'loc' => ['nullable', 'string', 'max:100'],
+            'airway' => ['nullable', 'string', 'max:100'],
+            'breathing' => ['nullable', 'string', 'max:100'],
+            'circulation' => ['nullable', 'string', 'max:100'],
+            'capillary_refill' => ['nullable', 'string', 'max:50'],
+            'pupils' => ['nullable', 'string', 'max:100'],
+            'ob_lmp' => ['nullable', 'string', 'max:50'],
+            'ob_aog' => ['nullable', 'string', 'max:50'],
+            'ob_edd' => ['nullable', 'string', 'max:50'],
+            'ob_gravida' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'ob_para' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'ob_term' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'ob_preterm' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'ob_abortion' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'ob_living' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'vital_signs' => ['nullable', 'array'],
+            'vital_signs.*.bp' => ['nullable', 'string', 'max:50'],
+            'vital_signs.*.rr' => ['nullable', 'string', 'max:50'],
+            'vital_signs.*.pr' => ['nullable', 'string', 'max:50'],
+            'vital_signs.*.temp' => ['nullable', 'string', 'max:50'],
+            'vital_signs.*.spo2' => ['nullable', 'string', 'max:50'],
+            'glasgow_scores' => ['nullable', 'array'],
+            'glasgow_scores.*.eye' => ['nullable', 'integer', 'min:1', 'max:4'],
+            'glasgow_scores.*.verbal' => ['nullable', 'integer', 'min:1', 'max:5'],
+            'glasgow_scores.*.motor' => ['nullable', 'integer', 'min:1', 'max:6'],
         ]);
 
         $assessmentPayload = [
-            'chief_complaint' => $validated['chief_complaint'] ?? $validated['assessment'] ?? null,
+            'chief_complaint' => $validated['chief_complaint'] ?? null,
+            'loc' => $validated['loc'] ?? null,
             'airway' => $validated['airway'] ?? null,
             'breathing' => $validated['breathing'] ?? null,
-            'circulation_support' => $validated['circulation_support'] ?? $validated['circulation'] ?? null,
-            'wound_care' => $validated['wound_care'] ?? null,
-            'miscellaneous' => $validated['miscellaneous'] ?? null,
-            'history_of_coronary_disease' => $validated['history_of_coronary_disease'] ?? $validated['coronary'] ?? null,
-            'collapse_witness' => $validated['collapse_witness'] ?? null,
-            'time_of_collapse' => $validated['time_of_collapse'] ?? null,
-            'start_of_cpr' => $validated['start_of_cpr'] ?? null,
-            'defibrillation_time' => $validated['defibrillation_time'] ?? null,
-            'cpr_duration' => $validated['cpr_duration'] ?? null,
-            'rosc' => $validated['rosc'] ?? null,
-            'transferred_to_hospital' => $validated['transferred_to_hospital'] ?? null,
+            'circulation' => $validated['circulation'] ?? null,
+            'capillary_refill' => $validated['capillary_refill'] ?? null,
+            'pupils' => $validated['pupils'] ?? null,
+            'ob_lmp' => $validated['ob_lmp'] ?? null,
+            'ob_aog' => $validated['ob_aog'] ?? null,
+            'ob_edd' => $validated['ob_edd'] ?? null,
+            'ob_gravida' => $validated['ob_gravida'] ?? null,
+            'ob_para' => $validated['ob_para'] ?? null,
+            'ob_term' => $validated['ob_term'] ?? null,
+            'ob_preterm' => $validated['ob_preterm'] ?? null,
+            'ob_abortion' => $validated['ob_abortion'] ?? null,
+            'ob_living' => $validated['ob_living'] ?? null,
         ];
 
-        ClientAssessment::query()->updateOrCreate(
+        $assessment = ClientAssessment::query()->updateOrCreate(
             ['client_id' => $primaryClient->id],
             $assessmentPayload
         );
+
+        if (isset($validated['vital_signs'])) {
+            $assessment->vitalSigns()->delete();
+            $vitalRows = array_filter($validated['vital_signs'], fn($row) =>
+                !empty($row['bp']) || !empty($row['rr']) || !empty($row['pr']) || !empty($row['temp']) || !empty($row['spo2'])
+            );
+            foreach ($vitalRows as $row) {
+                $assessment->vitalSigns()->create([
+                    'bp' => $row['bp'] ?? null,
+                    'rr' => $row['rr'] ?? null,
+                    'pr' => $row['pr'] ?? null,
+                    'temp' => $row['temp'] ?? null,
+                    'spo2' => $row['spo2'] ?? null,
+                ]);
+            }
+        }
+
+        if (isset($validated['glasgow_scores'])) {
+            $assessment->glasgowScores()->delete();
+            $glasgowRows = array_filter($validated['glasgow_scores'], fn($row) =>
+                !empty($row['eye']) || !empty($row['verbal']) || !empty($row['motor'])
+            );
+            foreach ($glasgowRows as $row) {
+                $assessment->glasgowScores()->create([
+                    'eye' => $row['eye'] ?? null,
+                    'verbal' => $row['verbal'] ?? null,
+                    'motor' => $row['motor'] ?? null,
+                ]);
+            }
+        }
 
         return response()->json([
             'message' => 'Assessment and care details saved successfully.',
@@ -504,7 +606,7 @@ class ReportController extends Controller
 
         if (!$wasSubmitted || !$hasExistingNotifications) {
             $actor = $request->user();
-            $actorUsername = trim((string) ($actor->username ?? 'Unknown User'));
+            $actorUsername = trim((string) ($actor->full_name ?? $actor->username ?? 'Unknown User'));
             $primaryClientName = $submittedReport->clients->first()?->full_name;
             $submittedAt = now();
 
@@ -535,6 +637,11 @@ class ReportController extends Controller
             }
         }
 
+        ActivityLog::record($request, 'submit_report',
+            optional($request->user())->full_name . " submitted a {$submittedReport->report_type} report",
+            ['report_id' => $report->id, 'report_type' => $submittedReport->report_type]
+        );
+
         return response()->json([
             'message' => 'Report submitted successfully.',
             'report' => $submittedReport,
@@ -545,12 +652,8 @@ class ReportController extends Controller
     {
         $issues = [];
 
-        if ($report->clients()->count() < 1) {
+        if ($report->report_type === 'Emergency' && $report->clients()->count() < 1) {
             $issues[] = 'At least one client is required.';
-        }
-
-        if ($report->responders()->count() < 1) {
-            $issues[] = 'At least one responder is required.';
         }
 
         if ($report->report_type === 'Emergency') {
@@ -566,13 +669,37 @@ class ReportController extends Controller
         return $issues;
     }
 
+    public function upsertAmbulanceTransfer(Request $request, Report $report): JsonResponse
+    {
+        $validated = $request->validate([
+            'ambulance_driver'    => ['nullable', 'string', 'max:255'],
+            'dispatcher'          => ['nullable', 'string', 'max:255'],
+            'responders'          => ['nullable', 'string'],
+            'receiving_facility'  => ['nullable', 'string', 'max:255'],
+            'receiving_personnel' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        AmbulanceTransfer::query()->updateOrCreate(
+            ['report_id' => $report->id],
+            $validated
+        );
+
+        return response()->json([
+            'message' => 'Ambulance transfer saved successfully.',
+            'report'  => $this->loadReport($report->fresh()),
+        ]);
+    }
+
     private function loadReport(Report $report): Report
     {
         return $report->load([
             'geographicType:id,name',
-            'clients.assessment',
+            'clients',
+            'clients.assessment.vitalSigns',
+            'clients.assessment.glasgowScores',
             'emergencyDetails',
             'incidentDetails',
+            'ambulanceTransfer',
             'responders',
             'photos',
         ]);

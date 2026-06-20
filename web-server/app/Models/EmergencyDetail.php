@@ -22,9 +22,9 @@ class EmergencyDetail extends Model
         'mechanism_of_injury',
         'nature_of_illness',
         'type_of_emergency',
+        'nature_of_call',
         'incident_date',
         'incident_time',
-        'dispatcher_name',
     ];
 
     protected function casts(): array

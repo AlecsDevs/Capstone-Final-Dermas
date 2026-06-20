@@ -1,30 +1,41 @@
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
+import { PageTour } from '../../components/PageTour'
+import type { Step } from 'react-joyride'
+import { createRoot } from 'react-dom/client'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
+import JSZip from 'jszip'
 import '../../style/zone_report.css'
 import { Modal } from '../../components/Modal'
+import blankTemplatePdfUrl from '../../assets/template_Emeregency_reports.pdf?url'
+import nabuaLogoUrl from '../../assets/nabua_logo.png?url'
+import mdrrmoLogoUrl from '../../assets/Mdrrmo_logo.png?url'
 import '../../style/emergency-report.css'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ClientInformationStep } from './zone-report/ClientInformationStep'
-import { EmergencyIncidentDetailsStep } from './zone-report/EmergencyIncidentDetailsStep'
-import { IncidentReportDetailsStep } from './zone-report/IncidentReportDetailsStep'
-import { AssessmentCareStep } from './zone-report/AssessmentCareStep'
-import { UploadPhotoStep } from './zone-report/UploadPhotoStep'
-import { ReviewSubmitStep } from './zone-report/ReviewSubmitStep'
+import { ClientInformationStep } from './zone-report/steps/ClientInformationStep'
+import { EmergencyIncidentDetailsStep } from './zone-report/steps/EmergencyIncidentDetailsStep'
+import { AssessmentCareStep } from './zone-report/steps/AssessmentCareStep'
+import { AmbulanceTransferStep } from './zone-report/steps/AmbulanceTransferStep'
+import { ReviewSubmitStep } from './zone-report/steps/ReviewSubmitStep'
 import { ZoneReportStepper } from './zone-report/stepper/ZoneReportStepper'
-import { ReportTypeSelectionStep } from './zone-report/stepper/ReportTypeSelectionStep'
 import { EMERGENCY_STEPS } from './zone-report/stepper/emergencySteps'
-import { INCIDENT_STEPS } from './zone-report/stepper/incidentSteps'
-import { ReportDocumentModal, type ReportDocumentData } from './zone-report/ReportDocumentModal'
-import { ReportEditModal, type EditReportPayload } from './zone-report/ReportEditModal'
+import { ReportDocumentModal, type ReportDocumentData } from './zone-report/components/ReportDocumentModal'
+import { ReportEditModal, type EditReportPayload } from './zone-report/components/ReportEditModal'
+import { PatientCareReportView } from './zone-report/views/PatientCareReportView'
+import { buildPcrData, capturePcrToPdf } from './zone-report/utils/pcrUtils'
 import api from '../../api/axios'
 import {
   INITIAL_FORM,
   createEmptyPerson,
-  type FormState,
+  createEmptyPersonForm,
+  createEmptyVitalSign,
+  createEmptyGlasgow,
+  type PersonFormData,
   type PersonInfo,
   type ReportKind,
+  type VitalSignRow,
+  type GlasgowRow,
 } from '../../types/zoneReport'
 import {
   type ApiErrorPayload,
@@ -37,7 +48,7 @@ import {
   type ReportTableItem,
 } from '../../types/zoneReportPage'
 
-const ZONES = ['Real Road', 'Poblacion', 'Mountain Area', 'River Side']
+const ZONES = ['Rail Road', 'Poblacion', 'Mountain Area', 'River Side']
 
 const toZoneSlug = (zoneName: string) =>
   zoneName
@@ -50,9 +61,8 @@ const getZoneNameFromSlug = (slug?: string) => {
   return ZONES.find(zone => toZoneSlug(zone) === slug) ?? null
 }
 
-const FILTER_TYPES = ['All Reports', 'Emergency', 'Incident']
+const FILTER_TYPES = ['All Reports', 'Emergency']
 const FILTER_GENDERS = ['All Genders', 'Male', 'Female']
-const DEFAULT_DISPATCHERS = ['Kabochi', 'Fox', 'Pastor']
 const FILTER_SORT = ['Most Recent', 'Oldest First']
 
 const toHHMM = (value?: string | null) => {
@@ -90,6 +100,8 @@ const toTableItem = (raw: RawReportPayload | null | undefined): ReportTableItem 
     incidentDetails: raw.incidentDetails ?? raw.incident_details ?? null,
     incident_details: raw.incident_details ?? raw.incidentDetails ?? null,
     responders: Array.isArray(raw.responders) ? raw.responders : [],
+    ambulanceTransfer: raw.ambulanceTransfer ?? raw.ambulance_transfer ?? null,
+    ambulance_transfer: raw.ambulance_transfer ?? raw.ambulanceTransfer ?? null,
   }
 }
 
@@ -128,10 +140,12 @@ const extractApiErrorIssues = (error: unknown) => {
 
 export default function Zone_Report() {
   const { zoneSlug } = useParams<{ zoneSlug: string }>()
+  const { pathname } = useLocation()
+  const roleBase = pathname.startsWith('/staff') ? '/staff' : '/admin'
   const zoneName = getZoneNameFromSlug(zoneSlug)
   const [open, setOpen] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
-  const [reportKind, setReportKind] = useState<ReportKind>(null)
+  const [reportKind, setReportKind] = useState<Exclude<ReportKind, null>>('emergency')
   const [isSaving, setIsSaving] = useState(false)
   const [geographicTypes, setGeographicTypes] = useState<GeographicTypeItem[]>([])
   const [tableReports, setTableReports] = useState<ReportTableItem[]>([])
@@ -142,36 +156,47 @@ export default function Zone_Report() {
   const [editingReport, setEditingReport] = useState<ReportDocumentData | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isEditSaving, setIsEditSaving] = useState(false)
-  const [isIncidentPreviewOpen, setIsIncidentPreviewOpen] = useState(false)
-  const [isPreviewVisible, setIsPreviewVisible] = useState(true)
-  const [isPreviewZoomed, setIsPreviewZoomed] = useState(false)
-  const [isSmallViewport, setIsSmallViewport] = useState(false)
-  const [previewOffset, setPreviewOffset] = useState({ x: 0, y: 0 })
-  const [isPreviewDragging, setIsPreviewDragging] = useState(false)
   const [modalOffset, setModalOffset] = useState({ x: 0, y: 0 })
   const [isModalDragging, setIsModalDragging] = useState(false)
   const dragStartRef = useRef({ x: 0, y: 0 })
   const dragOriginRef = useRef({ x: 0, y: 0 })
-  const previewDragStartRef = useRef({ x: 0, y: 0 })
-  const previewDragOriginRef = useRef({ x: 0, y: 0 })
-  const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null)
-  const [uploadedPhotoFile, setUploadedPhotoFile] = useState<File | null>(null)
   const [people, setPeople] = useState<PersonInfo[]>([createEmptyPerson()])
-  const [form, setForm] = useState<FormState>(INITIAL_FORM)
+  const [personForms, setPersonForms] = useState<PersonFormData[]>([createEmptyPersonForm()])
+  const [uploadedPhotoFiles, setUploadedPhotoFiles] = useState<(File | null)[]>([null])
   const [fieldErrors, setFieldErrors] = useState<FieldErrorMap>({})
+  const [activePersonIdx, setActivePersonIdx] = useState(0)
   const [filterType, setFilterType] = useState('All Reports')
   const [filterDispatcher, setFilterDispatcher] = useState('All Dispatchers')
+  const [filterGender, setFilterGender] = useState('All Genders')
+  const [filterSort, setFilterSort] = useState('Most Recent')
+  const [viewingReportId, setViewingReportId] = useState<number | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [messageState, setMessageState] = useState<MessageState>({ open: false, title: '', body: '' })
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false)
   const [pendingDeleteReportId, setPendingDeleteReportId] = useState<number | null>(null)
   const [deletingReportIds, setDeletingReportIds] = useState<number[]>([])
   const [isTableRefreshing, setIsTableRefreshing] = useState(false)
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false)
+  const [downloadAllProgress, setDownloadAllProgress] = useState(0)
+  const [downloadsOpen, setDownloadsOpen] = useState(false)
+  const downloadsMenuRef = useRef<HTMLDivElement>(null)
   const draftStorageKey = useMemo(() => `${ZONE_REPORT_DRAFT_PREFIX}${zoneName ?? 'unknown'}`, [zoneName])
 
   const showMessage = (title: string, body: string) => {
     setMessageState({ open: true, title, body })
   }
+
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (downloadsMenuRef.current && !downloadsMenuRef.current.contains(e.target as Node)) {
+        setDownloadsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
 
   const upsertTableReport = (raw: RawReportPayload | null | undefined) => {
     const item = toTableItem(raw)
@@ -209,20 +234,18 @@ export default function Zone_Report() {
     ].some(value => value.trim() !== '')
   )
 
-  const hasFilledForm =
-    Object.entries(form).some(([key, value]) => {
-      if (key === 'responders') {
-        return (value as string[]).some(item => item.trim() !== '')
-      }
-      return String(value ?? '').trim() !== ''
-    })
+  const hasFilledForm = personForms.some(pf =>
+    Object.entries(pf).some(([key, value]) =>
+      key !== 'vitalSigns' && key !== 'glasgowScores' && key !== 'uploadedPhoto' &&
+      String(value ?? '').trim() !== ''
+    )
+  )
 
   const hasStepperChanges =
-    reportKind !== null ||
     hasFilledPerson ||
     hasFilledForm ||
-    Boolean(uploadedPhoto) ||
-    Boolean(uploadedPhotoFile)
+    personForms.some(pf => pf.uploadedPhoto !== null) ||
+    uploadedPhotoFiles.some(f => f !== null)
 
   const clearCreateDraft = useCallback(() => {
     localStorage.removeItem(draftStorageKey)
@@ -242,13 +265,14 @@ export default function Zone_Report() {
       reportKind,
       currentStep,
       people,
-      form,
-      uploadedPhoto,
+      form: INITIAL_FORM,
+      uploadedPhoto: null,
       updatedAt: Date.now(),
+      personForms: personForms.map(pf => ({ ...pf, uploadedPhoto: pf.uploadedPhoto })),
     }
 
     localStorage.setItem(draftStorageKey, JSON.stringify(draft))
-  }, [open, hasStepperChanges, clearCreateDraft, reportKind, currentStep, people, form, uploadedPhoto, draftStorageKey])
+  }, [open, hasStepperChanges, clearCreateDraft, reportKind, currentStep, people, personForms, draftStorageKey])
 
   const loadCreateDraft = (): boolean => {
     const rawDraft = localStorage.getItem(draftStorageKey)
@@ -258,16 +282,18 @@ export default function Zone_Report() {
 
     try {
       const parsed = JSON.parse(rawDraft) as Partial<CreateReportDraft>
-      const nextKind = parsed.reportKind === 'emergency' || parsed.reportKind === 'incident' ? parsed.reportKind : null
-      const maxForKind = nextKind === 'emergency' ? EMERGENCY_STEPS.length : nextKind === 'incident' ? INCIDENT_STEPS.length : 1
-      const nextStep = Math.min(Math.max(Number(parsed.currentStep ?? 1), 1), maxForKind)
+      const nextKind: Exclude<ReportKind, null> = 'emergency'
+      const nextStep = Math.min(Math.max(Number(parsed.currentStep ?? 1), 1), EMERGENCY_STEPS.length)
 
+      const parsedPeople = Array.isArray(parsed.people) && parsed.people.length > 0 ? parsed.people : [createEmptyPerson()]
       setReportKind(nextKind)
       setCurrentStep(nextStep)
-      setPeople(Array.isArray(parsed.people) && parsed.people.length > 0 ? parsed.people : [createEmptyPerson()])
-      setForm({ ...INITIAL_FORM, ...(parsed.form ?? {}) })
-      setUploadedPhoto(typeof parsed.uploadedPhoto === 'string' ? parsed.uploadedPhoto : null)
-      setUploadedPhotoFile(null)
+      setPeople(parsedPeople)
+      const savedForms = Array.isArray(parsed.personForms) && parsed.personForms.length > 0
+        ? parsed.personForms.map(pf => ({ ...createEmptyPersonForm(), ...pf }))
+        : parsedPeople.map(() => createEmptyPersonForm())
+      setPersonForms(savedForms)
+      setUploadedPhotoFiles(parsedPeople.map(() => null))
       return true
     } catch {
       clearCreateDraft()
@@ -295,16 +321,16 @@ export default function Zone_Report() {
       let incoming: ReportTableItem[] = []
 
       try {
+        response = await api.get('/reports', {
+          params: {
+            ...(geographicTypeId ? { geographic_type_id: geographicTypeId } : {}),
+          },
+        })
+      } catch {
         response = await api.get('/reports/summary', {
           params: {
             ...(geographicTypeId ? { geographic_type_id: geographicTypeId } : {}),
             limit: 500,
-          },
-        })
-      } catch {
-        response = await api.get('/reports', {
-          params: {
-            ...(geographicTypeId ? { geographic_type_id: geographicTypeId } : {}),
           },
         })
       }
@@ -325,69 +351,45 @@ export default function Zone_Report() {
       setHasLoadedReports(true)
       setIsTableRefreshing(false)
     }
-  }, [zoneName, getGeographicTypeId, filterType])
+  }, [zoneName, getGeographicTypeId])
 
-  const steps = useMemo(() => {
-    if (reportKind === 'emergency') return EMERGENCY_STEPS
-    if (reportKind === 'incident') return INCIDENT_STEPS
-    return []
-  }, [reportKind])
+  const steps = EMERGENCY_STEPS
 
   const dispatcherOptions = useMemo(() => {
-    const available = new Set<string>(DEFAULT_DISPATCHERS)
-
-    tableReports.forEach(report => {
-      const emergencyDetail = report.emergencyDetails ?? report.emergency_details
-      const incidentDetail = report.incidentDetails ?? report.incident_details
-      const detail = report.report_type === 'Emergency' ? emergencyDetail : incidentDetail
-      const dispatcher = detail?.dispatcher_name?.trim()
-      if (dispatcher) {
-        available.add(dispatcher)
-      }
-    })
-
-    return ['All Dispatchers', ...Array.from(available)]
+    const names = tableReports
+      .map(r => (r.ambulanceTransfer ?? r.ambulance_transfer)?.dispatcher?.trim())
+      .filter((d): d is string => Boolean(d))
+    return ['All Dispatchers', ...Array.from(new Set(names)).sort()]
   }, [tableReports])
-
-  useEffect(() => {
-    if (!dispatcherOptions.includes(filterDispatcher)) {
-      setFilterDispatcher('All Dispatchers')
-    }
-  }, [dispatcherOptions, filterDispatcher])
 
   const displayedReports = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
 
-    return tableReports.filter(report => {
-      if (filterType !== 'All Reports' && report.report_type !== filterType) {
-        return false
-      }
-
-      const emergencyDetail = report.emergencyDetails ?? report.emergency_details
-      const incidentDetail = report.incidentDetails ?? report.incident_details
-      const detail = report.report_type === 'Emergency' ? emergencyDetail : incidentDetail
-      if (filterDispatcher !== 'All Dispatchers' && detail?.dispatcher_name !== filterDispatcher) {
-        return false
-      }
-
-      if (!normalizedSearch) {
-        return true
-      }
+    let result = tableReports.filter(report => {
+      if (filterType !== 'All Reports' && report.report_type !== filterType) return false
 
       const primaryClient = report.clients?.[0]
+      if (filterGender !== 'All Genders' && primaryClient?.gender !== filterGender) return false
+
+      if (filterDispatcher !== 'All Dispatchers') {
+        const d = (report.ambulanceTransfer ?? report.ambulance_transfer)?.dispatcher?.trim() || ''
+        if (d !== filterDispatcher) return false
+      }
+
+      if (!normalizedSearch) return true
+
       const location =
         primaryClient?.incident_address?.trim() || report.geographicType?.name || report.geographic_type?.name || zoneName || ''
-      const responders = (report.responders ?? [])
-        .map(responder => responder.name)
-        .filter((name): name is string => Boolean(name && name.trim()))
-        .join(', ')
+      const transfer = report.ambulanceTransfer ?? report.ambulance_transfer
+      const responders = transfer?.responders || (report.responders ?? [])
+        .map(r => r.name).filter((n): n is string => Boolean(n?.trim())).join(', ')
 
       const searchable = [
         primaryClient?.full_name,
         location,
-        detail?.dispatcher_name,
         responders,
         report.report_type,
+        transfer?.dispatcher,
       ]
         .filter(Boolean)
         .join(' ')
@@ -395,7 +397,10 @@ export default function Zone_Report() {
 
       return searchable.includes(normalizedSearch)
     })
-  }, [tableReports, filterType, filterDispatcher, searchTerm, zoneName])
+
+    if (filterSort === 'Oldest First') result = [...result].reverse()
+    return result
+  }, [tableReports, filterType, filterGender, filterDispatcher, filterSort, searchTerm, zoneName])
 
   const highlightMatch = (value: string | number | null | undefined): ReactNode => {
     const text = value === null || value === undefined ? 'N/A' : String(value)
@@ -421,22 +426,16 @@ export default function Zone_Report() {
 
   const resetStepper = () => {
     setCurrentStep(1)
-    setReportKind(null)
+    setReportKind('emergency')
     setIsSaving(false)
-    setUploadedPhoto(null)
-    setUploadedPhotoFile(null)
     setPeople([createEmptyPerson()])
-    setForm(INITIAL_FORM)
+    setPersonForms([createEmptyPersonForm()])
+    setUploadedPhotoFiles([null])
     setFieldErrors({})
   }
 
   const closeModal = () => {
     setOpen(false)
-    setIsIncidentPreviewOpen(false)
-    setIsPreviewVisible(true)
-    setIsPreviewZoomed(false)
-    setPreviewOffset({ x: 0, y: 0 })
-    setIsPreviewDragging(false)
     setModalOffset({ x: 0, y: 0 })
     setIsModalDragging(false)
     clearCreateDraft()
@@ -461,11 +460,6 @@ export default function Zone_Report() {
     closeModal()
   }
 
-  const closeViewModal = () => {
-    setIsViewOpen(false)
-    setIsViewLoading(false)
-    setSelectedReport(null)
-  }
 
   const closeEditModal = () => {
     setIsEditOpen(false)
@@ -475,23 +469,11 @@ export default function Zone_Report() {
 
   const openCreateModal = () => {
     resetStepper()
-    setIsPreviewVisible(true)
-    setIsPreviewZoomed(false)
-    setPreviewOffset({ x: 0, y: 0 })
-    setIsPreviewDragging(false)
     setModalOffset({ x: 0, y: 0 })
     setIsModalDragging(false)
     loadCreateDraft()
     setOpen(true)
   }
-
-  useEffect(() => {
-    const media = window.matchMedia('(max-width: 768px)')
-    const updateMatch = () => setIsSmallViewport(media.matches)
-    updateMatch()
-    media.addEventListener('change', updateMatch)
-    return () => media.removeEventListener('change', updateMatch)
-  }, [])
 
   useEffect(() => {
     if (!isModalDragging) {
@@ -517,34 +499,6 @@ export default function Zone_Report() {
     }
   }, [isModalDragging])
 
-  useEffect(() => {
-    if (!isPreviewDragging) {
-      return
-    }
-
-    const onMouseMove = (event: MouseEvent) => {
-      const nextX = previewDragOriginRef.current.x + (event.clientX - previewDragStartRef.current.x)
-      const nextY = previewDragOriginRef.current.y + (event.clientY - previewDragStartRef.current.y)
-      setPreviewOffset({ x: nextX, y: nextY })
-    }
-
-    const onMouseUp = () => {
-      setIsPreviewDragging(false)
-    }
-
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup', onMouseUp)
-
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
-    }
-  }, [isPreviewDragging])
-
-  const selectReportKind = (kind: Exclude<ReportKind, null>) => {
-    setReportKind(kind)
-    setCurrentStep(1)
-  }
 
   const dataUrlToFile = (dataUrl: string, baseName: string) => {
     const match = dataUrl.match(/^data:(.*?);base64,(.*)$/)
@@ -567,6 +521,7 @@ export default function Zone_Report() {
   const openViewModal = async (id: number) => {
     setIsViewOpen(true)
     setIsViewLoading(true)
+    setViewingReportId(id)
 
     try {
       const response = await api.get(`/reports/${id}`)
@@ -577,6 +532,12 @@ export default function Zone_Report() {
     } finally {
       setIsViewLoading(false)
     }
+  }
+
+  const closeViewModal = () => {
+    setIsViewOpen(false)
+    setSelectedReport(null)
+    setViewingReportId(null)
   }
 
   const openEditModal = async (id: number) => {
@@ -618,41 +579,57 @@ export default function Zone_Report() {
       })
 
       const currentClients = editingReport.clients ?? []
-      const updatedClients = (currentClients.length > 0 ? currentClients : [{}]).map((client, index) => {
-        if (index !== 0) {
-          return normalizeExistingClient((client ?? {}) as Partial<ReportClientItem> & Record<string, unknown>)
-        }
-
-        return {
-          full_name: normalizedFullName,
-          age: payload.client_age ? Number(payload.client_age) : null,
-          gender: normalizedGender,
-          nationality: payload.client_nationality || null,
-          contact_number: payload.client_contact_number || null,
-          permanent_address: payload.client_permanent_address || null,
-          incident_address: payload.client_incident_address || null,
-        }
-      })
+      const updatedClients = payload.all_clients
+        ? payload.all_clients.map(c => ({
+            full_name: c.full_name,
+            age: c.age,
+            gender: c.gender,
+            nationality: null,
+            contact_number: c.contact_number,
+            permanent_address: c.permanent_address,
+            incident_address: null,
+            accident_type: c.accident_type || null,
+          }))
+        : (currentClients.length > 0 ? currentClients : [{}]).map((client, index) => {
+            if (index !== 0) {
+              return normalizeExistingClient((client ?? {}) as Partial<ReportClientItem> & Record<string, unknown>)
+            }
+            return {
+              full_name: normalizedFullName,
+              age: payload.client_age ? Number(payload.client_age) : null,
+              gender: normalizedGender,
+              nationality: payload.client_nationality || null,
+              contact_number: payload.client_contact_number || null,
+              permanent_address: payload.client_permanent_address || null,
+              incident_address: payload.client_incident_address || null,
+              accident_type: payload.client_accident_type || null,
+            }
+          })
 
       await api.put(`/reports/${editingReport.id}/clients`, {
         clients: updatedClients,
       })
 
+      // Emergency details
       if (editingReport.report_type === 'Emergency') {
         await api.put(`/reports/${editingReport.id}/emergency-details`, {
-          mechanism_of_injury: payload.mechanism_of_injury || null,
-          nature_of_illness: payload.nature_of_illness || null,
           type_of_emergency: payload.type_of_emergency || null,
-          incident_date: payload.incident_date,
-          incident_time: toHHMM(payload.incident_time),
-          dispatcher_name: payload.dispatcher_name,
+          nature_of_call: payload.nature_of_call || null,
+          nature_of_illness: payload.nature_of_illness || null,
+          mechanism_of_injury: payload.mechanism_of_injury || null,
+          incident_date: payload.incident_date || null,
+          incident_time: payload.incident_time ? toHHMM(payload.incident_time) : null,
         })
 
         await api.put(`/reports/${editingReport.id}/assessment`, {
           chief_complaint: payload.assessment || null,
+          loc: payload.loc || null,
           airway: payload.airway || null,
           breathing: payload.breathing || null,
+          circulation: payload.circulation || null,
           circulation_support: payload.circulation || null,
+          capillary_refill: payload.capillary_refill || null,
+          pupils: payload.pupils || null,
           wound_care: payload.wound_care || null,
           miscellaneous: payload.miscellaneous || null,
           history_of_coronary_disease: payload.coronary || null,
@@ -663,20 +640,48 @@ export default function Zone_Report() {
           cpr_duration: payload.cpr_duration ? Number(payload.cpr_duration) : null,
           rosc: payload.rosc || null,
           transferred_to_hospital: payload.transferred_to_hospital || null,
-        })
-      } else {
-        await api.put(`/reports/${editingReport.id}/incident-details`, {
-          type_of_hazard: payload.type_of_hazard,
-          nature_of_call: payload.nature_of_call,
-          incident_date: payload.incident_date,
-          incident_time: toHHMM(payload.incident_time),
-          dispatcher_name: payload.dispatcher_name,
+          vital_signs: payload.vital_signs?.length ? payload.vital_signs : undefined,
+          glasgow_scores: payload.glasgow_scores?.length ? payload.glasgow_scores.map(g => ({
+            eye: g.eye ? Number(g.eye) : null,
+            verbal: g.verbal ? Number(g.verbal) : null,
+            motor: g.motor ? Number(g.motor) : null,
+          })) : undefined,
+          ob_lmp: payload.ob_lmp || null,
+          ob_aog: payload.ob_aog || null,
+          ob_edd: payload.ob_edd || null,
+          ob_gravida: payload.ob_gravida ? Number(payload.ob_gravida) : null,
+          ob_para: payload.ob_para ? Number(payload.ob_para) : null,
+          ob_term: payload.ob_term ? Number(payload.ob_term) : null,
+          ob_preterm: payload.ob_preterm ? Number(payload.ob_preterm) : null,
+          ob_abortion: payload.ob_abortion ? Number(payload.ob_abortion) : null,
+          ob_living: payload.ob_living ? Number(payload.ob_living) : null,
         })
       }
 
-      await api.put(`/reports/${editingReport.id}/responders`, {
-        responders: payload.responders,
-      })
+      // Incident details
+      if (editingReport.report_type === 'Incident') {
+        await api.put(`/reports/${editingReport.id}/incident-details`, {
+          type_of_incident:  payload.type_of_incident || null,
+          type_of_hazard:    payload.type_of_hazard || null,
+          severity_level:    payload.severity_level || null,
+          incident_barangay: payload.incident_barangay || null,
+          incident_date:     payload.incident_date || null,
+          incident_time:     payload.incident_time ? toHHMM(payload.incident_time) : null,
+        })
+      }
+
+      // Ambulance transfer
+      if (payload.ambulance_driver !== undefined || payload.dispatcher !== undefined ||
+          payload.responders !== undefined || payload.receiving_facility !== undefined ||
+          payload.receiving_personnel !== undefined) {
+        await api.put(`/reports/${editingReport.id}/ambulance-transfer`, {
+          ambulance_driver: payload.ambulance_driver || null,
+          dispatcher: payload.dispatcher || null,
+          responders: payload.responders || null,
+          receiving_facility: payload.receiving_facility || null,
+          receiving_personnel: payload.receiving_personnel || null,
+        })
+      }
 
       if (payload.photo_file) {
         const formData = new FormData()
@@ -709,23 +714,9 @@ export default function Zone_Report() {
             incident_address: payload.client_incident_address || null,
           },
         ],
-        emergencyDetails:
-          editingReport.report_type === 'Emergency'
-            ? {
-                dispatcher_name: payload.dispatcher_name,
-                incident_time: toHHMM(payload.incident_time),
-                nature_of_call: null,
-              }
-            : null,
-        incidentDetails:
-          editingReport.report_type === 'Incident'
-            ? {
-                dispatcher_name: payload.dispatcher_name,
-                incident_time: toHHMM(payload.incident_time),
-                nature_of_call: payload.nature_of_call || null,
-              }
-            : null,
-        responders: payload.responders.map((name, index) => ({ id: index + 1, name })),
+        emergencyDetails: editingReport.emergencyDetails ?? editingReport.emergency_details ?? null,
+        incidentDetails: editingReport.incidentDetails ?? editingReport.incident_details ?? null,
+        responders: editingReport.responders ?? [],
       })
 
       refreshReports().catch(() => undefined)
@@ -756,11 +747,9 @@ export default function Zone_Report() {
 
     try {
       await api.delete(`/reports/${reportId}`)
-      showMessage('Success', 'Report deleted successfully.')
-      refreshReports().catch(() => undefined)
     } catch {
       setTableReports(snapshot)
-      showMessage('Delete Failed', 'Unable to delete this report.')
+      showMessage('Delete Failed', 'Unable to move this report to trash.')
     } finally {
       setDeletingReportIds(prev => prev.filter(id => id !== reportId))
     }
@@ -770,51 +759,22 @@ export default function Zone_Report() {
     refreshReports().catch(() => undefined)
   }
 
-  const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm(prev => ({ ...prev, [key]: value }))
-
+  const updatePersonFormField = (personIdx: number, key: keyof PersonFormData, value: PersonFormData[typeof key]) => {
+    setPersonForms(prev => {
+      const next = [...prev]
+      next[personIdx] = { ...next[personIdx], [key]: value }
+      return next
+    })
     if (typeof value === 'string' && value.trim() !== '') {
       setFieldErrors(prev => {
-        if (!prev[key as string]) {
-          return prev
-        }
+        const errorKey = `p${personIdx}-${key}`
+        if (!prev[errorKey] && !prev[key as string]) return prev
         const next = { ...prev }
+        delete next[errorKey]
         delete next[key as string]
         return next
       })
     }
-  }
-
-  const updateResponder = (index: number, value: string) => {
-    setForm(prev => {
-      const nextResponders = [...prev.responders]
-      nextResponders[index] = value
-      return { ...prev, responders: nextResponders }
-    })
-
-    if (value.trim() !== '') {
-      setFieldErrors(prev => {
-        if (!prev.responders) {
-          return prev
-        }
-        const next = { ...prev }
-        delete next.responders
-        return next
-      })
-    }
-  }
-
-  const addResponder = () => {
-    setForm(prev => ({ ...prev, responders: [...prev.responders, ''] }))
-  }
-
-  const removeResponder = (index: number) => {
-    setForm(prev => {
-      if (prev.responders.length === 1) {
-        return prev
-      }
-      return { ...prev, responders: prev.responders.filter((_, i) => i !== index) }
-    })
   }
 
   const updatePerson = (index: number, key: keyof PersonInfo, value: string) => {
@@ -838,170 +798,125 @@ export default function Zone_Report() {
   }
 
   const addPerson = () => {
-    setPeople(prev => [...prev, createEmptyPerson()])
+    setPeople(prev => {
+      const first = prev[0]
+      return [...prev, {
+        ...createEmptyPerson(),
+        permanentAddress: first?.permanentAddress ?? '',
+        incidentLocation: first?.incidentLocation ?? '',
+      }]
+    })
+    setPersonForms(prev => {
+      const first = prev[0] ?? createEmptyPersonForm()
+      return [...prev, {
+        ...createEmptyPersonForm(),
+        incidentDate: first.incidentDate,
+        incidentTime: first.incidentTime,
+        natureOfCall: first.natureOfCall,
+        typeEmergency: first.typeEmergency,
+        typeOfHazard: first.typeOfHazard,
+      }]
+    })
+    setUploadedPhotoFiles(prev => [...prev, null])
   }
 
   const removePerson = (index: number) => {
-    setPeople(prev => {
-      if (prev.length === 1) {
-        return prev
-      }
-      return prev.filter((_, i) => i !== index)
-    })
+    if (people.length === 1) return
+    setPeople(prev => prev.filter((_, i) => i !== index))
+    setPersonForms(prev => prev.filter((_, i) => i !== index))
+    setUploadedPhotoFiles(prev => prev.filter((_, i) => i !== index))
   }
 
-  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const makeVitalUpdater = (personIdx: number) => ({
+    update: (rowIdx: number, key: keyof VitalSignRow, value: string) =>
+      setPersonForms(prev => {
+        const next = [...prev]; const pf = { ...next[personIdx] }
+        const vs = [...pf.vitalSigns]; vs[rowIdx] = { ...vs[rowIdx], [key]: value }
+        pf.vitalSigns = vs; next[personIdx] = pf; return next
+      }),
+    add: () => setPersonForms(prev => {
+      const next = [...prev]; const pf = { ...next[personIdx] }
+      pf.vitalSigns = [...pf.vitalSigns, createEmptyVitalSign()]; next[personIdx] = pf; return next
+    }),
+    remove: (rowIdx: number) => setPersonForms(prev => {
+      const next = [...prev]; const pf = { ...next[personIdx] }
+      if (pf.vitalSigns.length === 1) return prev
+      pf.vitalSigns = pf.vitalSigns.filter((_, i) => i !== rowIdx); next[personIdx] = pf; return next
+    }),
+  })
+
+  const makeGlasgowUpdater = (personIdx: number) => ({
+    update: (rowIdx: number, key: keyof GlasgowRow, value: string) =>
+      setPersonForms(prev => {
+        const next = [...prev]; const pf = { ...next[personIdx] }
+        const gs = [...pf.glasgowScores]; gs[rowIdx] = { ...gs[rowIdx], [key]: value }
+        pf.glasgowScores = gs; next[personIdx] = pf; return next
+      }),
+    add: () => setPersonForms(prev => {
+      const next = [...prev]; const pf = { ...next[personIdx] }
+      pf.glasgowScores = [...pf.glasgowScores, createEmptyGlasgow()]; next[personIdx] = pf; return next
+    }),
+    remove: (rowIdx: number) => setPersonForms(prev => {
+      const next = [...prev]; const pf = { ...next[personIdx] }
+      if (pf.glasgowScores.length === 1) return prev
+      pf.glasgowScores = pf.glasgowScores.filter((_, i) => i !== rowIdx); next[personIdx] = pf; return next
+    }),
+  })
+
+  const makePhotoHandler = (personIdx: number) => (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) {
-      setUploadedPhoto(null)
-      setUploadedPhotoFile(null)
+      updatePersonFormField(personIdx, 'uploadedPhoto', null)
+      setUploadedPhotoFiles(prev => { const n = [...prev]; n[personIdx] = null; return n })
       return
     }
-    setUploadedPhotoFile(file)
+    setUploadedPhotoFiles(prev => { const n = [...prev]; n[personIdx] = file; return n })
     const reader = new FileReader()
-    reader.onload = e => {
-      setUploadedPhoto((e.target?.result as string) ?? null)
-    }
+    reader.onload = e => updatePersonFormField(personIdx, 'uploadedPhoto', (e.target?.result as string) ?? null)
     reader.readAsDataURL(file)
   }
 
   const maxStep = Math.max(steps.length, 1)
-
-  const buildClientPayload = () => {
-    const clients = people
-      .map(person => {
-        const fullName = [person.firstName, person.middleName, person.lastName]
-          .map(part => part.trim())
-          .filter(Boolean)
-          .join(' ')
-
-        return {
-          full_name: fullName,
-          age: person.age ? Number(person.age) : null,
-          gender: person.gender,
-          nationality: person.nationality.trim() || null,
-          contact_number: person.contactNumber.trim() || null,
-          permanent_address: person.permanentAddress.trim() || null,
-          incident_address: person.incidentLocation.trim() || null,
-        }
-      })
-      .filter(client => client.full_name || client.gender)
-
-    if (clients.length < 1) {
-      throw new Error('Please add at least one client with a name and gender.')
-    }
-
-    clients.forEach(client => {
-      if (!client.full_name || !client.gender) {
-        throw new Error('Each client must have both full name and gender.')
-      }
-    })
-
-    return clients
-  }
-
-  const createReportOnSubmit = async (): Promise<number> => {
-    const geographicTypeId = getGeographicTypeId()
-    if (!geographicTypeId) {
-      throw new Error('Geographic type was not found. Please try again.')
-    }
-
-    const now = new Date()
-    const fallbackDate = now.toISOString().slice(0, 10)
-    const fallbackTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-
-    const response = await api.post('/reports', {
-      report_type: reportKind === 'emergency' ? 'Emergency' : 'Incident',
-      geographic_type_id: geographicTypeId,
-      date_reported: form.incidentDate || fallbackDate,
-      time_reported: toHHMM(form.incidentTime) || fallbackTime,
-    })
-
-    const createdId = response.data?.report?.id as number | undefined
-    if (!createdId) {
-      throw new Error('Failed to create a report draft.')
-    }
-
-    return createdId
-  }
 
   const getRequiredErrorsForStep = (step: number): FieldErrorMap => {
     const errors: FieldErrorMap = {}
 
     if (step === 1) {
       people.forEach((person, index) => {
-        if (!person.firstName.trim()) {
-          errors[`person-${index}-firstName`] = 'First name is required.'
-        }
-        if (!person.lastName.trim()) {
-          errors[`person-${index}-lastName`] = 'Last name is required.'
-        }
-        if (!person.gender.trim()) {
-          errors[`person-${index}-gender`] = 'Gender is required.'
-        }
-        if (!person.nationality.trim()) {
-          errors[`person-${index}-nationality`] = 'Nationality is required.'
-        }
-        if (!person.contactNumber.trim()) {
-          errors[`person-${index}-contactNumber`] = 'Contact number is required.'
-        }
-        if (!person.permanentAddress.trim()) {
-          errors[`person-${index}-permanentAddress`] = 'Permanent address is required.'
-        }
-        if (!person.incidentLocation.trim()) {
-          errors[`person-${index}-incidentLocation`] = 'Location of incident is required.'
-        }
+        if (!person.firstName.trim()) errors[`person-${index}-firstName`] = 'First name is required.'
+        if (!person.lastName.trim()) errors[`person-${index}-lastName`] = 'Last name is required.'
+        if (!person.gender.trim()) errors[`person-${index}-gender`] = 'Gender is required.'
+        if (!person.nationality.trim()) errors[`person-${index}-nationality`] = 'Nationality is required.'
+        if (!person.permanentAddress.trim()) errors[`person-${index}-permanentAddress`] = 'Permanent address is required.'
+        if (!person.incidentLocation.trim()) errors[`person-${index}-incidentLocation`] = 'Location of incident is required.'
       })
       return errors
     }
-
-    if (reportKind === 'emergency' && step === 2) {
-      if (!form.mechanism.trim()) {
-        errors.mechanism = 'Mechanism of injury/illness is required.'
-      }
-      if (!form.natureIllness.trim()) {
-        errors.natureIllness = 'Nature of illness is required.'
-      }
-      if (!form.typeEmergency.trim()) {
-        errors.typeEmergency = 'Type of emergency is required.'
-      }
-      if (!form.incidentDate.trim()) {
-        errors.incidentDate = 'Incident date is required.'
-      }
-      if (!form.incidentTime.trim()) {
-        errors.incidentTime = 'Incident time is required.'
-      }
-      if (!form.dispatchOfficer.trim()) {
-        errors.dispatchOfficer = 'Dispatch officer is required.'
-      }
-      if (!form.responders.some(name => name.trim().length > 0)) {
-        errors.responders = 'At least one responder is required.'
-      }
-      return errors
+    if (step === 2) {
+      personForms.forEach((pf, i) => {
+        const pfx = `p${i}-`
+        if (!pf.mechanism.trim()) errors[`${pfx}mechanism`] = 'Mechanism of injury/illness is required.'
+        if (!pf.natureIllness.trim()) errors[`${pfx}natureIllness`] = 'Nature of illness is required.'
+        if (!pf.typeEmergency.trim()) errors[`${pfx}typeEmergency`] = 'Type of emergency is required.'
+        if (!pf.incidentDate.trim()) errors[`${pfx}incidentDate`] = 'Incident date is required.'
+        if (!pf.incidentTime.trim()) errors[`${pfx}incidentTime`] = 'Incident time is required.'
+      })
     }
-
-    if (reportKind === 'incident' && step === 2) {
-      if (!form.typeOfHazard.trim()) {
-        errors.typeOfHazard = 'Type of hazard is required.'
-      }
-      if (!form.natureOfCall.trim()) {
-        errors.natureOfCall = 'Nature of call is required.'
-      }
-      if (!form.incidentDate.trim()) {
-        errors.incidentDate = 'Incident date is required.'
-      }
-      if (!form.incidentTime.trim()) {
-        errors.incidentTime = 'Incident time is required.'
-      }
-      if (!form.dispatchOfficer.trim()) {
-        errors.dispatchOfficer = 'Dispatch officer is required.'
-      }
-      if (!form.responders.some(name => name.trim().length > 0)) {
-        errors.responders = 'At least one responder is required.'
-      }
-      return errors
+    if (step === 3) {
+      personForms.forEach((pf, i) => {
+        if (pf.typeEmergency !== 'OB') return
+        const pfx = `p${i}-`
+        if (!pf.obLmp.trim()) errors[`${pfx}obLmp`] = 'LMP is required for OB emergencies.'
+        if (!pf.obAog.trim()) errors[`${pfx}obAog`] = 'AOG is required for OB emergencies.'
+        if (!pf.obEdd.trim()) errors[`${pfx}obEdd`] = 'EDD is required for OB emergencies.'
+        if (!pf.obGravida.trim()) errors[`${pfx}obGravida`] = 'Gravida is required for OB emergencies.'
+        if (!pf.obPara.trim()) errors[`${pfx}obPara`] = 'Para is required for OB emergencies.'
+        if (!pf.obTerm.trim()) errors[`${pfx}obTerm`] = 'Term is required for OB emergencies.'
+        if (!pf.obPreterm.trim()) errors[`${pfx}obPreterm`] = 'Preterm is required for OB emergencies.'
+        if (!pf.obAbortion.trim()) errors[`${pfx}obAbortion`] = 'Abortion is required for OB emergencies.'
+        if (!pf.obLiving.trim()) errors[`${pfx}obLiving`] = 'Living is required for OB emergencies.'
+      })
     }
-
     return errors
   }
 
@@ -1012,21 +927,17 @@ export default function Zone_Report() {
   }
 
   const validateAllRequiredForSubmit = () => {
-    const stepOneErrors = getRequiredErrorsForStep(1)
-    if (Object.keys(stepOneErrors).length > 0) {
-      return { errors: stepOneErrors, firstInvalidStep: 1 }
+    const s1 = getRequiredErrorsForStep(1)
+    if (Object.keys(s1).length > 0) return { errors: s1, firstInvalidStep: 1 }
+    for (let s = 2; s < maxStep; s++) {
+      const errs = getRequiredErrorsForStep(s)
+      if (Object.keys(errs).length > 0) return { errors: errs, firstInvalidStep: s }
     }
-
-    const stepTwoErrors = getRequiredErrorsForStep(2)
-    if (Object.keys(stepTwoErrors).length > 0) {
-      return { errors: stepTwoErrors, firstInvalidStep: 2 }
-    }
-
     return { errors: {}, firstInvalidStep: null as number | null }
   }
 
   const goNext = async () => {
-    if (!reportKind || isSaving) {
+    if (isSaving) {
       return
     }
 
@@ -1049,109 +960,117 @@ export default function Zone_Report() {
     setCurrentStep(prev => Math.max(prev - 1, 1))
   }
 
-  const goBackToReportType = () => {
-    setReportKind(null)
-    setCurrentStep(1)
-    setUploadedPhoto(null)
-    setUploadedPhotoFile(null)
-    setPeople([createEmptyPerson()])
-    setForm(INITIAL_FORM)
-    clearCreateDraft()
-  }
 
   const submitReport = async () => {
-    if (!reportKind || isSaving) {
-      return
-    }
-
+    if (isSaving) return
     setIsSaving(true)
     try {
       const { errors, firstInvalidStep } = validateAllRequiredForSubmit()
       if (Object.keys(errors).length > 0) {
         setFieldErrors(errors)
-        if (firstInvalidStep) {
-          setCurrentStep(firstInvalidStep)
-        }
+        if (firstInvalidStep) setCurrentStep(firstInvalidStep)
         throw new Error('Please complete the required fields.')
       }
 
-      const clientsPayload = buildClientPayload()
-      const id = await createReportOnSubmit()
+      const geographicTypeId = getGeographicTypeId()
+      if (!geographicTypeId) throw new Error('Geographic type was not found. Please try again.')
+      const now = new Date()
+      const fallbackDate = now.toISOString().slice(0, 10)
+      const fallbackTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
 
-      await api.put(`/reports/${id}/clients`, {
-        clients: clientsPayload,
-      })
+      let lastResponse: { data: { report?: RawReportPayload } } | null = null
 
-      if (reportKind === 'emergency') {
-        await api.put(`/reports/${id}/emergency-details`, {
-          mechanism_of_injury: form.mechanism || null,
-          nature_of_illness: form.natureIllness || null,
-          type_of_emergency: form.typeEmergency || null,
-          incident_date: form.incidentDate,
-          incident_time: toHHMM(form.incidentTime),
-          dispatcher_name: form.dispatchOfficer,
+      for (let i = 0; i < people.length; i++) {
+        const person = people[i]
+        const pf = personForms[i] ?? createEmptyPersonForm()
+        const fullName = [person.firstName, person.middleName, person.lastName].map(p => p.trim()).filter(Boolean).join(' ')
+        if (!fullName || !person.gender) continue
+
+        const sharedPf = pf
+        const reportRes = await api.post('/reports', {
+          report_type: 'Emergency',
+          geographic_type_id: geographicTypeId,
+          date_reported: sharedPf.incidentDate || fallbackDate,
+          time_reported: toHHMM(sharedPf.incidentTime) || fallbackTime,
+          latitude: person.latitude ? parseFloat(person.latitude) : null,
+          longitude: person.longitude ? parseFloat(person.longitude) : null,
+        })
+        const id = reportRes.data?.report?.id as number | undefined
+        if (!id) throw new Error('Failed to create report draft.')
+
+        await api.put(`/reports/${id}/clients`, {
+          clients: [{
+            full_name: fullName,
+            age: person.age ? Number(person.age) : null,
+            gender: person.gender,
+            nationality: person.nationality.trim() || null,
+            contact_number: person.contactNumber.trim() || null,
+            permanent_address: person.permanentAddress.trim() || null,
+            incident_address: person.incidentLocation.trim() || null,
+            accident_type: person.accidentType.trim() || null,
+          }],
         })
 
-        await api.put(`/reports/${id}/assessment`, {
-          assessment: form.assessment || null,
-          airway: form.airway || null,
-          breathing: form.breathing || null,
-          circulation: form.circulation || null,
-          wound_care: form.woundCare || null,
-          miscellaneous: form.miscellaneous || null,
-          coronary: form.coronary || null,
-          collapse_witness: form.collapseWitness || null,
-          time_of_collapse: toHHMM(form.timeCollapse) || null,
-          start_of_cpr: toHHMM(form.startCpr) || null,
-          defibrillation_time: toHHMM(form.defibrillation) || null,
-          cpr_duration: form.durationCpr ? Number(form.durationCpr) : null,
-          rosc: form.rosc || null,
-          transferred_to_hospital: form.hospitalTransfer || null,
+        if (reportKind === 'emergency') {
+          await api.put(`/reports/${id}/emergency-details`, {
+            mechanism_of_injury: pf.mechanism || null,
+            nature_of_illness: pf.natureIllness || null,
+            type_of_emergency: pf.typeEmergency || null,
+            nature_of_call: pf.natureOfCall || null,
+            incident_date: pf.incidentDate,
+            incident_time: toHHMM(pf.incidentTime),
+          })
+          await api.put(`/reports/${id}/assessment`, {
+            chief_complaint: pf.chiefComplaint || null,
+            loc: pf.loc || null,
+            airway: pf.airway || null,
+            breathing: pf.breathing || null,
+            circulation: pf.circulation || null,
+            capillary_refill: pf.capillaryRefill || null,
+            pupils: pf.pupils || null,
+            vital_signs: pf.vitalSigns.filter(vs => vs.bp || vs.rr || vs.pr || vs.temp || vs.spo2),
+            glasgow_scores: pf.glasgowScores.filter(g => g.eye || g.verbal || g.motor).map(g => ({
+              eye: g.eye ? Number(g.eye) : null,
+              verbal: g.verbal ? Number(g.verbal) : null,
+              motor: g.motor ? Number(g.motor) : null,
+            })),
+            ob_lmp: pf.obLmp || null, ob_aog: pf.obAog || null, ob_edd: pf.obEdd || null,
+            ob_gravida: pf.obGravida ? Number(pf.obGravida) : null,
+            ob_para: pf.obPara ? Number(pf.obPara) : null,
+            ob_term: pf.obTerm ? Number(pf.obTerm) : null,
+            ob_preterm: pf.obPreterm ? Number(pf.obPreterm) : null,
+            ob_abortion: pf.obAbortion ? Number(pf.obAbortion) : null,
+            ob_living: pf.obLiving ? Number(pf.obLiving) : null,
+          })
+        }
+
+        const photoFile = uploadedPhotoFiles[i] ?? (pf.uploadedPhoto ? dataUrlToFile(pf.uploadedPhoto, `report-${id}-photo`) : null)
+        if (photoFile) {
+          const fd = new FormData(); fd.append('photo', photoFile)
+          await api.post(`/reports/${id}/photos/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+        }
+
+        const ambulancePf = pf
+        await api.put(`/reports/${id}/ambulance-transfer`, {
+          ambulance_driver: ambulancePf.ambulanceDriver || null,
+          dispatcher: ambulancePf.dispatcher || null,
+          responders: ambulancePf.ambulanceResponders || null,
+          receiving_facility: ambulancePf.receivingFacility || null,
+          receiving_personnel: ambulancePf.receivingPersonnel || null,
         })
+
+        lastResponse = await api.post(`/reports/${id}/submit`)
+        if (lastResponse?.data?.report) upsertTableReport(lastResponse.data.report)
       }
 
-      if (reportKind === 'incident') {
-        await api.put(`/reports/${id}/incident-details`, {
-          type_of_hazard: form.typeOfHazard,
-          nature_of_call: form.natureOfCall,
-          incident_date: form.incidentDate,
-          incident_time: toHHMM(form.incidentTime),
-          dispatcher_name: form.dispatchOfficer,
-        })
-      }
-
-      await api.put(`/reports/${id}/responders`, {
-        responders: form.responders.filter(name => name.trim().length > 0),
-      })
-
-      const photoToUpload = uploadedPhotoFile ?? (uploadedPhoto ? dataUrlToFile(uploadedPhoto, `report-${id}-photo`) : null)
-      if (photoToUpload) {
-        const formData = new FormData()
-        formData.append('photo', photoToUpload)
-
-        await api.post(`/reports/${id}/photos/upload`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        })
-      }
-
-      const response = await api.post(`/reports/${id}/submit`)
-
-      upsertTableReport(response.data?.report)
       refreshReports().catch(() => undefined)
-
       clearCreateDraft()
       closeModal()
-      showMessage('Success', 'Report submitted successfully.')
+      const n = people.length
+      showMessage('Success', n > 1 ? `${n} reports submitted successfully.` : 'Report submitted successfully.')
     } catch (error: unknown) {
-      if (error instanceof Error && error.message === 'Please complete the required fields.') {
-        return
-      }
-
-      const issues = extractApiErrorIssues(error)
-      const message = extractApiErrorMessage(error, 'Unable to submit report.')
-      showMessage('Submit Failed', message + issues)
+      if (error instanceof Error && error.message === 'Please complete the required fields.') return
+      showMessage('Submit Failed', extractApiErrorMessage(error, 'Unable to submit report.') + extractApiErrorIssues(error))
     } finally {
       setIsSaving(false)
     }
@@ -1159,7 +1078,7 @@ export default function Zone_Report() {
 
   useEffect(() => {
     saveCreateDraft()
-  }, [open, reportKind, currentStep, people, form, uploadedPhoto, hasStepperChanges, draftStorageKey, saveCreateDraft])
+  }, [open, reportKind, currentStep, people, personForms, hasStepperChanges, draftStorageKey, saveCreateDraft])
 
   useEffect(() => {
     let ignore = false
@@ -1203,14 +1122,14 @@ export default function Zone_Report() {
   }, [zoneName, geographicTypes, filterType, refreshReports])
 
   const formatDate = (value: string) => {
-    if (!value) return 'N/A'
+    if (!value) return '—'
     const parsed = new Date(value)
     if (Number.isNaN(parsed.getTime())) return value
     return parsed.toLocaleDateString()
   }
 
   const formatTime = (value: string) => {
-    if (!value) return 'N/A'
+    if (!value) return '—'
     const parsed = new Date(`1970-01-01T${value}`)
     if (Number.isNaN(parsed.getTime())) return value
     return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -1222,28 +1141,45 @@ export default function Zone_Report() {
       const emergencyDetail = report.emergencyDetails ?? report.emergency_details
       const incidentDetail = report.incidentDetails ?? report.incident_details
       const detail = report.report_type === 'Emergency' ? emergencyDetail : incidentDetail
-      const dispatcher = detail?.dispatcher_name || 'N/A'
+      const dispatcher = detail?.dispatcher_name || '—'
       const location =
-        primaryClient?.incident_address?.trim() || report.geographicType?.name || report.geographic_type?.name || zoneName || 'N/A'
+        primaryClient?.incident_address?.trim() ||
+        incidentDetail?.incident_barangay?.trim() ||
+        report.geographicType?.name || report.geographic_type?.name || zoneName || '—'
       const responders = (report.responders ?? [])
         .map(responder => responder.name)
         .filter((name): name is string => Boolean(name && name.trim()))
 
       return [
         formatDate(report.date_reported),
-        primaryClient?.full_name || 'N/A',
-        primaryClient?.age ?? 'N/A',
-        primaryClient?.gender || 'N/A',
+        primaryClient?.full_name || '—',
+        primaryClient?.age ?? '—',
+        primaryClient?.gender || '—',
         report.report_type,
         location,
         dispatcher,
-        responders.length > 0 ? responders.join(', ') : 'N/A',
+        responders.length > 0 ? responders.join(', ') : '—',
         formatTime(detail?.incident_time || report.time_reported),
       ]
     })
   }
 
-  const handleDownloadPdf = () => {
+  const loadImageAsBase64 = (url: string): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        canvas.getContext('2d')!.drawImage(img, 0, 0)
+        resolve(canvas.toDataURL('image/png'))
+      }
+      img.onerror = reject
+      img.src = url
+    })
+
+  const handleDownloadPdf = async () => {
     if (!zoneName) {
       showMessage('Export Failed', 'Zone name is missing.')
       return
@@ -1253,6 +1189,17 @@ export default function Zone_Report() {
     const pageWidth = doc.internal.pageSize.getWidth()
     const generatedAt = new Date().toLocaleString()
     const rows = buildExportRows()
+
+    try {
+      const [nabuaBase64, mdrrmoBase64] = await Promise.all([
+        loadImageAsBase64(nabuaLogoUrl),
+        loadImageAsBase64(mdrrmoLogoUrl),
+      ])
+      doc.addImage(nabuaBase64, 'PNG', 30, 14, 110, 110)
+      doc.addImage(mdrrmoBase64, 'PNG', pageWidth - 140, 14, 110, 110)
+    } catch {
+      // logo failed to load — continue without it
+    }
 
     doc.setFont('times', 'normal')
     doc.setFontSize(18)
@@ -1346,387 +1293,250 @@ export default function Zone_Report() {
     XLSX.writeFile(workbook, fileName)
   }
 
-  const renderStepContent = () => {
-    if (!reportKind) {
-      return <ReportTypeSelectionStep reportKind={reportKind} onSelect={selectReportKind} />
-    }
-
-    const primaryPerson = people[0] ?? createEmptyPerson()
-    const reportLabel = reportKind === 'emergency' ? 'emergency' : 'incident'
-    const onFormChange = (key: string, value: string) => updateField(key as keyof FormState, value)
-
-    if (reportKind === 'emergency') {
-      if (currentStep === 1) {
-        return (
-          <ClientInformationStep
-            people={people}
-            reportLabel={reportLabel}
-            errors={fieldErrors}
-            onChangePerson={updatePerson}
-            onAddPerson={addPerson}
-            onRemovePerson={removePerson}
-          />
-        )
-      }
-
-      if (currentStep === 2) {
-        return (
-          <EmergencyIncidentDetailsStep
-            mechanism={form.mechanism}
-            natureIllness={form.natureIllness}
-            typeEmergency={form.typeEmergency}
-            incidentDate={form.incidentDate}
-            incidentTime={form.incidentTime}
-            dispatchOfficer={form.dispatchOfficer}
-            responders={form.responders}
-            errors={fieldErrors}
-            onChange={onFormChange}
-            onChangeResponder={updateResponder}
-            onAddResponder={addResponder}
-            onRemoveResponder={removeResponder}
-          />
-        )
-      }
-
-      if (currentStep === 3) {
-        return (
-          <AssessmentCareStep
-            assessment={form.assessment}
-            airway={form.airway}
-            breathing={form.breathing}
-            circulation={form.circulation}
-            woundCare={form.woundCare}
-            miscellaneous={form.miscellaneous}
-            coronary={form.coronary}
-            collapseWitness={form.collapseWitness}
-            timeCollapse={form.timeCollapse}
-            startCpr={form.startCpr}
-            defibrillation={form.defibrillation}
-            durationCpr={form.durationCpr}
-            rosc={form.rosc}
-            hospitalTransfer={form.hospitalTransfer}
-            errors={fieldErrors}
-            onChange={onFormChange}
-          />
-        )
-      }
-
-      if (currentStep === 4) {
-        return <UploadPhotoStep uploadedPhoto={uploadedPhoto} onPhotoChange={handlePhotoChange} />
-      }
-
-      if (currentStep === 5) {
-        return (
-          <ReviewSubmitStep
-            reportKind="emergency"
-            zoneName={zoneName ?? 'N/A'}
-            primaryPerson={primaryPerson}
-            fallbackFullName={form.fullName}
-            incidentDate={form.incidentDate}
-            incidentTime={form.incidentTime}
-            dispatchOfficer={form.dispatchOfficer}
-            responders={form.responders}
-            typeEmergency={form.typeEmergency}
-            typeOfHazard={form.typeOfHazard}
-            natureOfCall={form.natureOfCall}
-            mechanism={form.mechanism}
-            natureIllness={form.natureIllness}
-            assessment={form.assessment}
-            airway={form.airway}
-            breathing={form.breathing}
-            circulation={form.circulation}
-            woundCare={form.woundCare}
-            miscellaneous={form.miscellaneous}
-            coronary={form.coronary}
-            collapseWitness={form.collapseWitness}
-            timeCollapse={form.timeCollapse}
-            startCpr={form.startCpr}
-            defibrillation={form.defibrillation}
-            durationCpr={form.durationCpr}
-            rosc={form.rosc}
-            hospitalTransfer={form.hospitalTransfer}
-            uploadedPhoto={uploadedPhoto}
-          />
-        )
-      }
-    }
-
-    if (reportKind === 'incident') {
-      if (currentStep === 1) {
-        return (
-          <ClientInformationStep
-            people={people}
-            reportLabel={reportLabel}
-            errors={fieldErrors}
-            onChangePerson={updatePerson}
-            onAddPerson={addPerson}
-            onRemovePerson={removePerson}
-          />
-        )
-      }
-
-      if (currentStep === 2) {
-        return (
-          <IncidentReportDetailsStep
-            typeOfHazard={form.typeOfHazard}
-            natureOfCall={form.natureOfCall}
-            incidentDate={form.incidentDate}
-            incidentTime={form.incidentTime}
-            dispatchOfficer={form.dispatchOfficer}
-            responders={form.responders}
-            errors={fieldErrors}
-            onChange={onFormChange}
-            onChangeResponder={updateResponder}
-            onAddResponder={addResponder}
-            onRemoveResponder={removeResponder}
-          />
-        )
-      }
-
-      if (currentStep === 3) {
-        return <UploadPhotoStep uploadedPhoto={uploadedPhoto} onPhotoChange={handlePhotoChange} />
-      }
-
-      if (currentStep === 4) {
-        return (
-          <ReviewSubmitStep
-            reportKind="incident"
-            zoneName={zoneName ?? 'N/A'}
-            primaryPerson={primaryPerson}
-            fallbackFullName={form.fullName}
-            incidentDate={form.incidentDate}
-            incidentTime={form.incidentTime}
-            dispatchOfficer={form.dispatchOfficer}
-            responders={form.responders}
-            typeEmergency={form.typeEmergency}
-            typeOfHazard={form.typeOfHazard}
-            natureOfCall={form.natureOfCall}
-            mechanism={form.mechanism}
-            natureIllness={form.natureIllness}
-            assessment={form.assessment}
-            airway={form.airway}
-            breathing={form.breathing}
-            circulation={form.circulation}
-            woundCare={form.woundCare}
-            miscellaneous={form.miscellaneous}
-            coronary={form.coronary}
-            collapseWitness={form.collapseWitness}
-            timeCollapse={form.timeCollapse}
-            startCpr={form.startCpr}
-            defibrillation={form.defibrillation}
-            durationCpr={form.durationCpr}
-            rosc={form.rosc}
-            hospitalTransfer={form.hospitalTransfer}
-            uploadedPhoto={uploadedPhoto}
-          />
-        )
-      }
-    }
-
-    return null
+  const handleDownloadBlankTemplate = () => {
+    const a = document.createElement('a')
+    a.href = blankTemplatePdfUrl
+    a.download = 'template_Emergency_reports.pdf'
+    a.click()
   }
 
-  const showLivePreview = reportKind !== null && currentStep < maxStep
-  const showDockPreview = showLivePreview && isPreviewVisible && !isSmallViewport
+  const handleDownloadAllZip = async () => {
+    if (displayedReports.length === 0 || isDownloadingAll) return
+    setIsDownloadingAll(true)
+    setDownloadAllProgress(0)
 
-  const renderIncidentLivePreview = (enableDrag = false) => {
-    const primaryPerson = people[0] ?? createEmptyPerson()
-    const incidentResponders = form.responders.filter(name => name.trim() !== '')
-    const isEmergencyPreview = reportKind === 'emergency'
-    const fullName = [primaryPerson.firstName, primaryPerson.middleName, primaryPerson.lastName]
-      .filter(Boolean)
-      .join(' ') || 'N/A'
+    const waitForImages = (el: HTMLElement) =>
+      Promise.all(
+        Array.from(el.querySelectorAll('img')).map(img =>
+          img.complete
+            ? Promise.resolve()
+            : new Promise<void>(res => { img.onload = () => res(); img.onerror = () => res() })
+        )
+      )
 
+    const zip = new JSZip()
+
+    for (let i = 0; i < displayedReports.length; i++) {
+      const row = displayedReports[i]
+      setDownloadAllProgress(i + 1)
+      try {
+        const response = await api.get(`/reports/${row.id}`)
+        const fullReport = response.data as ReportDocumentData
+        const pcrData = buildPcrData(fullReport)
+
+        const container = document.createElement('div')
+        container.style.cssText = 'position:absolute;left:-9999px;top:0;width:740px;pointer-events:none'
+        document.body.appendChild(container)
+
+        const root = createRoot(container)
+        await new Promise<void>(res => {
+          root.render(<PatientCareReportView data={pcrData} />)
+          requestAnimationFrame(() => requestAnimationFrame(() => res()))
+        })
+        await waitForImages(container)
+
+        const doc = await capturePcrToPdf(container)
+        const name = (pcrData.patientName || 'report').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+        zip.file(`${String(i + 1).padStart(2, '0')}-${name}-${pcrData.date || 'unknown'}.pdf`, doc.output('arraybuffer'))
+
+        root.unmount()
+        document.body.removeChild(container)
+      } catch {
+        // skip failed report and continue
+      }
+    }
+
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${slugifyFileName(zoneName ?? 'zone')}-all-reports-${new Date().toISOString().slice(0, 10)}.zip`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    setIsDownloadingAll(false)
+    setDownloadAllProgress(0)
+  }
+
+  const renderStepContent = () => {
+    if (currentStep === 1) {
+      return (
+        <ClientInformationStep
+          people={people}
+          reportLabel="emergency"
+          errors={fieldErrors}
+          onChangePerson={updatePerson}
+          onAddPerson={addPerson}
+          onRemovePerson={removePerson}
+        />
+      )
+    }
+
+    if (currentStep === maxStep) {
+      return (
+        <ReviewSubmitStep
+          reportKind={reportKind}
+          zoneName={zoneName ?? 'N/A'}
+          people={people}
+          personForms={personForms}
+          onChangePerson={updatePerson}
+          onChangePersonForm={(idx, key, value) => updatePersonFormField(idx, key as keyof PersonFormData, value)}
+          onChangeVitalSign={(personIdx, rowIdx, key, value) => {
+            setPersonForms(prev => {
+              const next = [...prev]
+              const vitals = [...(next[personIdx]?.vitalSigns ?? [])]
+              if (vitals[rowIdx]) vitals[rowIdx] = { ...vitals[rowIdx], [key]: value }
+              next[personIdx] = { ...next[personIdx], vitalSigns: vitals }
+              return next
+            })
+          }}
+          onChangeGlasgow={(personIdx, rowIdx, key, value) => {
+            setPersonForms(prev => {
+              const next = [...prev]
+              const scores = [...(next[personIdx]?.glasgowScores ?? [])]
+              if (scores[rowIdx]) scores[rowIdx] = { ...scores[rowIdx], [key]: value }
+              next[personIdx] = { ...next[personIdx], glasgowScores: scores }
+              return next
+            })
+          }}
+          onAddPerson={addPerson}
+          onRemovePerson={removePerson}
+        />
+      )
+    }
+
+    const clampedPersonIdx = Math.min(activePersonIdx, people.length - 1)
+    const showPersonTabs = people.length > 1
     return (
-      <article className={`zr-live-preview-pane${isPreviewZoomed ? ' is-zoomed' : ''}`}>
-        <div
-          className={`zr-live-preview-header${enableDrag ? ' is-draggable' : ''}`}
-          onMouseDown={enableDrag ? handlePreviewHeaderMouseDown : undefined}
-        >
-          <div>
-            <h6 className="mb-1">Live {isEmergencyPreview ? 'Emergency' : 'Incident'} Preview</h6>
-            <small>Updates while you type</small>
+      <div>
+        {showPersonTabs && (
+          <div className="d-flex align-items-center gap-2 flex-wrap mb-3 pb-2" style={{ borderBottom: '1px solid #e9ecef' }}>
+            {people.map((p, pi) => {
+              const tabName = [p.firstName, p.lastName].filter(Boolean).join(' ') || `Person ${pi + 1}`
+              const isActive = pi === clampedPersonIdx
+              return (
+                <button
+                  key={pi}
+                  type="button"
+                  className={`btn btn-sm fw-semibold ${isActive ? 'btn-primary' : 'btn-outline-secondary'}`}
+                  style={{ borderRadius: 20, fontSize: 13 }}
+                  onClick={() => setActivePersonIdx(pi)}
+                >
+                  <i className="bi bi-person me-1" />
+                  {tabName}
+                </button>
+              )
+            })}
           </div>
-          <button
-            type="button"
-            className={`btn zr-preview-zoom-btn${isPreviewZoomed ? ' is-zoomed' : ''}`}
-            onClick={() => setIsPreviewZoomed(prev => !prev)}
-            aria-label={isPreviewZoomed ? 'Zoom out preview' : 'Zoom in preview'}
-            title={isPreviewZoomed ? 'Zoom out' : 'Zoom in'}
-          >
-            <i className={`bi ${isPreviewZoomed ? 'bi-zoom-out' : 'bi-zoom-in'}`}></i>
-          </button>
-        </div>
+        )}
+        {people.map((person, pi) => {
+          if (people.length > 1 && pi !== clampedPersonIdx) return null
+          const pf = personForms[pi] ?? createEmptyPersonForm()
+          const patientName = [person.firstName, person.lastName].filter(Boolean).join(' ') || `Person ${pi + 1}`
+          const pfx = `p${pi}-`
+          const errorsForPerson: Record<string, string> = {}
+          Object.entries(fieldErrors).forEach(([k, v]) => {
+            if (k.startsWith(pfx)) errorsForPerson[k.slice(pfx.length)] = v
+          })
+          const onPfChange = (key: string, value: string) => updatePersonFormField(pi, key as keyof PersonFormData, value)
+          const vitals = makeVitalUpdater(pi)
+          const glasgows = makeGlasgowUpdater(pi)
+          const multiPerson = people.length > 1
+          const multiPatientName = multiPerson ? patientName : undefined
 
-        <div className="zr-live-preview-paper">
-          <div className={`zr-live-preview-canvas${isPreviewZoomed ? ' is-zoomed' : ''}`}>
-            <table className="zr-record-table zr-live-preview-table">
-              <tbody>
-              <tr className="zr-record-section-row">
-                <th colSpan={6}>Patient Record</th>
-              </tr>
-              <tr>
-                <th>Patient Name</th>
-                <td>{fullName}</td>
-                <th>Age</th>
-                <td>{primaryPerson.age || 'N/A'}</td>
-                <th>Gender</th>
-                <td>{primaryPerson.gender || 'N/A'}</td>
-              </tr>
-              <tr>
-                <th>Nationality</th>
-                <td>{primaryPerson.nationality || 'N/A'}</td>
-                <th>Contact Number</th>
-                <td colSpan={3}>{primaryPerson.contactNumber || 'N/A'}</td>
-              </tr>
-              <tr>
-                <th>Permanent Address</th>
-                <td colSpan={5}>{primaryPerson.permanentAddress || 'N/A'}</td>
-              </tr>
-              <tr>
-                <th>Location of Incident</th>
-                <td colSpan={5}>{primaryPerson.incidentLocation || 'N/A'}</td>
-              </tr>
+          if (reportKind === 'emergency') {
+            if (currentStep === 2) return (
+              <EmergencyIncidentDetailsStep key={pi}
+                patientName={multiPatientName}
+                mechanism={pf.mechanism} natureIllness={pf.natureIllness}
+                typeEmergency={pf.typeEmergency} natureOfCall={pf.natureOfCall}
+                incidentDate={pf.incidentDate} incidentTime={pf.incidentTime}
+                obLmp={pf.obLmp} obAog={pf.obAog} obEdd={pf.obEdd}
+                obGravida={pf.obGravida} obPara={pf.obPara} obTerm={pf.obTerm}
+                obPreterm={pf.obPreterm} obAbortion={pf.obAbortion} obLiving={pf.obLiving}
+                errors={errorsForPerson} onChange={onPfChange}
+              />
+            )
+            if (currentStep === 3) return (
+              <AssessmentCareStep key={pi}
+                patientName={multiPatientName}
+                chiefComplaint={pf.chiefComplaint} loc={pf.loc} airway={pf.airway}
+                breathing={pf.breathing} circulation={pf.circulation}
+                capillaryRefill={pf.capillaryRefill} pupils={pf.pupils}
+                typeEmergency={pf.typeEmergency}
+                vitalSigns={pf.vitalSigns} glasgowScores={pf.glasgowScores}
+                obLmp={pf.obLmp} obAog={pf.obAog} obEdd={pf.obEdd}
+                obGravida={pf.obGravida} obPara={pf.obPara} obTerm={pf.obTerm}
+                obPreterm={pf.obPreterm} obAbortion={pf.obAbortion} obLiving={pf.obLiving}
+                errors={errorsForPerson} onChange={onPfChange}
+                onVitalSignChange={vitals.update} onAddVitalSign={vitals.add} onRemoveVitalSign={vitals.remove}
+                onGlasgowChange={glasgows.update} onAddGlasgow={glasgows.add} onRemoveGlasgow={glasgows.remove}
+              />
+            )
+            if (currentStep === 4) return (
+              <AmbulanceTransferStep key={pi}
+                patientName={multiPatientName}
+                ambulanceDriver={pf.ambulanceDriver} dispatcher={pf.dispatcher}
+                ambulanceResponders={pf.ambulanceResponders}
+                receivingFacility={pf.receivingFacility} receivingPersonnel={pf.receivingPersonnel}
+                uploadedPhoto={pf.uploadedPhoto}
+                onChange={onPfChange} onPhotoChange={makePhotoHandler(pi)}
+              />
+            )
+          }
 
-              <tr className="zr-record-section-row">
-                <th colSpan={6}>Report Record</th>
-              </tr>
-              <tr>
-                <th>Report Date</th>
-                <td>{formatDate(form.incidentDate)}</td>
-                <th>Report Time</th>
-                <td>{formatTime(form.incidentTime)}</td>
-                <th>Dispatcher</th>
-                <td>{form.dispatchOfficer || 'N/A'}</td>
-              </tr>
-              <tr>
-                <th>Incident Date</th>
-                <td>{formatDate(form.incidentDate)}</td>
-                <th>Incident Time</th>
-                <td>{formatTime(form.incidentTime)}</td>
-                <th>Type</th>
-                <td>{isEmergencyPreview ? 'Emergency' : 'Incident'}</td>
-              </tr>
-
-              <tr className="zr-record-section-row">
-                <th colSpan={6}>{isEmergencyPreview ? 'Incident Details (Emergency)' : 'Incident Details (Incident)'}</th>
-              </tr>
-              <tr>
-                <th>{isEmergencyPreview ? 'Type of Emergency' : 'Type of Hazard'}</th>
-                <td>{isEmergencyPreview ? (form.typeEmergency || 'N/A') : (form.typeOfHazard || 'N/A')}</td>
-                <th>{isEmergencyPreview ? 'Nature of Illness' : 'Nature of Call'}</th>
-                <td colSpan={3}>{isEmergencyPreview ? (form.natureIllness || 'N/A') : (form.natureOfCall || 'N/A')}</td>
-              </tr>
-              {isEmergencyPreview && (
-                <tr>
-                  <th>Mechanism of Injury</th>
-                  <td colSpan={5}>{form.mechanism || 'N/A'}</td>
-                </tr>
-              )}
-              <tr>
-                <th>Responders</th>
-                <td colSpan={5}>{incidentResponders.length > 0 ? incidentResponders.join(', ') : 'N/A'}</td>
-              </tr>
-
-              {isEmergencyPreview && (
-                <>
-                  <tr className="zr-record-section-row">
-                    <th colSpan={6}>Assessment &amp; Care Record</th>
-                  </tr>
-                  <tr>
-                    <th>Chief Complaint</th>
-                    <td colSpan={5}>{form.assessment || 'N/A'}</td>
-                  </tr>
-                  <tr>
-                    <th>Airway</th>
-                    <td>{form.airway || 'N/A'}</td>
-                    <th>Breathing</th>
-                    <td>{form.breathing || 'N/A'}</td>
-                    <th>Circulation</th>
-                    <td>{form.circulation || 'N/A'}</td>
-                  </tr>
-                  <tr>
-                    <th>Wound Care</th>
-                    <td>{form.woundCare || 'N/A'}</td>
-                    <th>Coronary History</th>
-                    <td>{form.coronary || 'N/A'}</td>
-                    <th>Collapse Witness</th>
-                    <td>{form.collapseWitness || 'N/A'}</td>
-                  </tr>
-                  <tr>
-                    <th>Time of Collapse</th>
-                    <td>{formatTime(form.timeCollapse)}</td>
-                    <th>Start of CPR</th>
-                    <td>{formatTime(form.startCpr)}</td>
-                    <th>Defibrillation</th>
-                    <td>{formatTime(form.defibrillation)}</td>
-                  </tr>
-                  <tr>
-                    <th>CPR Duration</th>
-                    <td>{form.durationCpr || 'N/A'}</td>
-                    <th>ROSC</th>
-                    <td>{form.rosc || 'N/A'}</td>
-                    <th>Transferred to Hospital</th>
-                    <td>{form.hospitalTransfer || 'N/A'}</td>
-                  </tr>
-                </>
-              )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </article>
+          return null
+        })}
+      </div>
     )
   }
 
   const handleModalHeaderMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (isSmallViewport) {
-      return
-    }
-
     const target = event.target as HTMLElement
     if (target.closest('button, input, select, textarea, a, label')) {
       return
     }
-
     dragStartRef.current = { x: event.clientX, y: event.clientY }
     dragOriginRef.current = { ...modalOffset }
     setIsModalDragging(true)
   }
 
-  const handleTogglePreview = () => {
-    if (isSmallViewport) {
-      setIsIncidentPreviewOpen(true)
-      return
-    }
-    setIsPreviewVisible(prev => !prev)
-  }
-
-  const handlePreviewHeaderMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (isSmallViewport) {
-      return
-    }
-
-    const target = event.target as HTMLElement
-    if (target.closest('button, input, select, textarea, a, label')) {
-      return
-    }
-
-    previewDragStartRef.current = { x: event.clientX, y: event.clientY }
-    previewDragOriginRef.current = { ...previewOffset }
-    setIsPreviewDragging(true)
-  }
-
   if (!zoneName) {
-    return <Navigate to="/admin/zonal-reports" replace />
+    return <Navigate to={`${roleBase}/zonal-reports`} replace />
   }
+
+  const TOUR_STEPS: Step[] = [
+    { target: '.zr-heading', placement: 'bottom', skipBeacon: true, title: 'Zone Reports', content: 'This page manages all emergency and incident reports for this specific zone.' },
+    { target: '.zr-btn-create', placement: 'bottom', skipBeacon: true, title: 'Create Report', content: 'Click here to open the multi-step form and submit a new emergency report for this zone.' },
+    { target: '.zr-btn-pdf', placement: 'bottom', skipBeacon: true, title: 'Download Options', content: 'Export the current list of reports as a PDF or Excel file, or download bulk report PDFs as a ZIP.' },
+    { target: '.zr-card', placement: 'top', skipBeacon: true, title: 'Report Cards', content: 'Each card represents one submitted report. Click the eye icon to view the full document, or the edit icon to make corrections.' },
+  ]
 
   return (
     <section className="zr-page">
-     
+      <PageTour steps={TOUR_STEPS} storageKey="dermas_tour_done_zr" />
       <div className="zr-top">
         <Modal open={isViewOpen} close={closeViewModal}>
-          <ReportDocumentModal report={selectedReport} isLoading={isViewLoading} onClose={closeViewModal} />
+          {(() => {
+            const currentViewIdx = viewingReportId != null ? displayedReports.findIndex(r => r.id === viewingReportId) : -1
+            const hasPrev = currentViewIdx > 0
+            const hasNext = currentViewIdx >= 0 && currentViewIdx < displayedReports.length - 1
+            const recordLabel = currentViewIdx >= 0 ? `Record ${currentViewIdx + 1} of ${displayedReports.length}` : undefined
+            return (
+              <ReportDocumentModal
+                report={selectedReport}
+                isLoading={isViewLoading}
+                onClose={closeViewModal}
+                hasPrev={hasPrev}
+                hasNext={hasNext}
+                recordLabel={recordLabel}
+                onPrev={() => hasPrev && openViewModal(displayedReports[currentViewIdx - 1].id)}
+                onNext={() => hasNext && openViewModal(displayedReports[currentViewIdx + 1].id)}
+              />
+            )
+          })()}
         </Modal>
 
         <Modal open={isEditOpen} close={closeEditModal}>
@@ -1768,8 +1578,8 @@ export default function Zone_Report() {
             <div className="zr-doc-modal" style={{ maxWidth: 520 }}>
               <div className="zr-doc-modal-header">
                 <div>
-                  <h5 className="mb-0">Delete Report?</h5>
-                  <small>This action cannot be undone.</small>
+                  <h5 className="mb-0">Move Report to Trash?</h5>
+                  <small>It will be permanently deleted after 30 days.</small>
                 </div>
                 <button
                   type="button"
@@ -1779,13 +1589,13 @@ export default function Zone_Report() {
                 ></button>
               </div>
               <div className="zr-doc-modal-body">
-                <p className="mb-3">Are you sure you want to delete this report permanently?</p>
+                <p className="mb-3">The report will be moved to Trash. You can restore it within 30 days.</p>
                 <div className="d-flex justify-content-end gap-2">
                   <button type="button" className="btn btn-outline-secondary" onClick={() => setPendingDeleteReportId(null)}>
                     Cancel
                   </button>
                   <button type="button" className="btn btn-danger" onClick={confirmDeleteReport}>
-                    Delete
+                    Move to Trash
                   </button>
                 </div>
               </div>
@@ -1817,18 +1627,7 @@ export default function Zone_Report() {
         </Modal>
 
         <Modal open={open} close={requestCloseCreateModal}>
-          <>
-            {showDockPreview && (
-              <aside
-                className={`zr-live-preview-dock${isPreviewDragging ? ' is-dragging' : ''}${isPreviewZoomed ? ' is-zoomed' : ''}`}
-                aria-label="Live Report Preview"
-                style={{ transform: `translate(${previewOffset.x}px, ${previewOffset.y}px)` }}
-              >
-                {renderIncidentLivePreview(true)}
-              </aside>
-            )}
-
-            <div className="zr-modal-backdrop" role="dialog" aria-modal="true">
+          <div className="zr-modal-backdrop" role="dialog" aria-modal="true">
               <div
                 className={`zr-modal-panel${isModalDragging ? ' is-dragging' : ''}`}
                 style={{ transform: `translate(${modalOffset.x}px, ${modalOffset.y}px)` }}
@@ -1836,11 +1635,7 @@ export default function Zone_Report() {
               <div className="zr-modal-header" onMouseDown={handleModalHeaderMouseDown}>
                 <h5 className="mb-0">
                   <i className="bi bi-clipboard-plus me-2"></i>
-                  {!reportKind
-                    ? 'Create Incident Report'
-                    : reportKind === 'emergency'
-                      ? 'Create Emergency Report'
-                      : 'Create Incident Report'}
+                  Create Emergency Report
                   <span className="zr-modal-badge">MDRRMO</span>
                 </h5>
 
@@ -1850,43 +1645,18 @@ export default function Zone_Report() {
               </div>
 
               <div className="zr-modal-content-wrap">
-                {reportKind && (
-                    <>
-                      <div className="zr-stepper-topbar">
-                        <div className="d-flex align-items-center gap-2">
-                          <button type="button" className="btn btn-stepper-back-top" onClick={goBackToReportType}>
-                            <i className="bi bi-arrow-left me-1"></i>
-                            Back to Report Type
-                          </button>
-                          {showLivePreview && (
-                            <button
-                              type="button"
-                              className={`btn btn-stepper-preview-eye${showDockPreview ? ' is-open' : ''}`}
-                              onClick={handleTogglePreview}
-                              aria-label="Preview report"
-                              title={isSmallViewport ? 'Open preview' : showDockPreview ? 'Hide preview' : 'Show preview'}
-                            >
-                              <i className={`bi ${isSmallViewport ? 'bi-eye' : showDockPreview ? 'bi-eye-slash' : 'bi-eye'}`}></i>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                  <div className="zr-modal-stepper-shell">
-                    <div className="zr-modal-stepper">
-                      <ZoneReportStepper steps={steps} currentStep={currentStep} />
-                    </div>
+                <div className="zr-modal-stepper-shell">
+                  <div className="zr-modal-stepper">
+                    <ZoneReportStepper steps={steps} currentStep={currentStep} />
                   </div>
-                    </>
-                )}
+                </div>
 
                 <div className="zr-modal-step-shell">
                   <div className="zr-modal-body">{renderStepContent()}</div>
                 </div>
               </div>
 
-              {reportKind && (
-                <div className="zr-modal-footer">
+              <div className="zr-modal-footer">
                   <div className="zr-modal-footer-left">
                     <button
                       type="button"
@@ -1911,30 +1681,13 @@ export default function Zone_Report() {
                     </button>
                   )}
                 </div>
-              )}
               </div>
             </div>
-          </>
-        </Modal>
-
-        <Modal open={isIncidentPreviewOpen} close={() => setIsIncidentPreviewOpen(false)}>
-          <div className="zr-doc-backdrop" role="dialog" aria-modal="true">
-            <div className="zr-doc-modal" style={{ maxWidth: 920 }}>
-              <div className="zr-doc-modal-header">
-                <div>
-                  <h5 className="mb-0">Incident Preview</h5>
-                  <small>Live data preview while creating report</small>
-                </div>
-                <button type="button" className="btn-close" onClick={() => setIsIncidentPreviewOpen(false)} aria-label="Close"></button>
-              </div>
-              <div className="zr-doc-modal-body">{renderIncidentLivePreview(false)}</div>
-            </div>
-          </div>
         </Modal>
         <div className="zr-heading">
           <h1 className="zr-title mb-1">{zoneName} Zone Reports</h1>
           <p className="zr-breadcrumb mb-0">
-            <Link to="/admin/zonal-reports" className="zr-crumb-link">
+            <Link to={`${roleBase}/zonal-reports`} className="zr-crumb-link">
               Manage Reports
             </Link>
             <span className="zr-crumb-sep">/</span>
@@ -1943,33 +1696,91 @@ export default function Zone_Report() {
         </div>
 
         <div className="zr-actions">
-          <button
-            onClick={openCreateModal}
-            type="button"
-            className="zr-btn zr-btn-create"
-          >
+          {/* Primary action */}
+          <button onClick={openCreateModal} type="button" className="zr-btn zr-btn-create">
             <i className="bi bi-clipboard2-plus me-2"></i>
-            Create Incident Report
+            Create Emergency Report
           </button>
 
-          <Link to="/admin/zonal-reports" className="zr-btn zr-btn-back">
+          <Link to={`${roleBase}/zonal-reports`} className="zr-btn zr-btn-back">
             <i className="bi bi-arrow-left me-2"></i>
             Back to Zones
           </Link>
 
-          <button type="button" className="zr-btn zr-btn-pdf" onClick={handleDownloadPdf}>
-            <i className="bi bi-file-earmark-pdf me-2"></i>
-            Download PDF
-          </button>
+          {/* Downloads dropdown */}
+          <div className="zr-dl-menu-wrap" ref={downloadsMenuRef}>
+            <button
+              type="button"
+              className={`zr-btn zr-btn-pdf${downloadsOpen ? ' zr-btn-pdf--open' : ''}`}
+              onClick={() => setDownloadsOpen(o => !o)}
+            >
+              <i className="bi bi-download me-2"></i>
+              Downloads
+              <i className={`bi bi-chevron-down ms-2 zr-dl-chevron${downloadsOpen ? ' zr-dl-chevron--up' : ''}`}></i>
+            </button>
 
-          <button type="button" className="zr-btn zr-btn-excel" onClick={handleExportExcel}>
-            <i className="bi bi-file-earmark-excel me-2"></i>
-            Export Excel
-          </button>
+            {downloadsOpen && (
+              <div className="zr-dl-menu">
+                <button
+                  type="button"
+                  className="zr-dl-item"
+                  onClick={() => { handleDownloadPdf(); setDownloadsOpen(false) }}
+                >
+                  <i className="bi bi-file-earmark-pdf zr-dl-icon zr-dl-icon--pdf"></i>
+                  <span>
+                    <strong>Download PDF</strong>
+                    <small>Zone summary table</small>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className="zr-dl-item"
+                  onClick={() => { handleDownloadAllZip(); setDownloadsOpen(false) }}
+                  disabled={isDownloadingAll || displayedReports.length === 0}
+                >
+                  <i className="bi bi-file-zip zr-dl-icon zr-dl-icon--zip"></i>
+                  <span>
+                    {isDownloadingAll ? (
+                      <><strong>Downloading…</strong><small>{downloadAllProgress} / {displayedReports.length} reports</small></>
+                    ) : (
+                      <><strong>Download All (ZIP)</strong><small>{displayedReports.length} individual PDFs</small></>
+                    )}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className="zr-dl-item"
+                  onClick={() => { handleExportExcel(); setDownloadsOpen(false) }}
+                >
+                  <i className="bi bi-file-earmark-excel zr-dl-icon zr-dl-icon--excel"></i>
+                  <span>
+                    <strong>Export Excel</strong>
+                    <small>Spreadsheet format</small>
+                  </span>
+                </button>
+
+                <div className="zr-dl-divider"></div>
+
+                <button
+                  type="button"
+                  className="zr-dl-item"
+                  onClick={() => { handleDownloadBlankTemplate(); setDownloadsOpen(false) }}
+                >
+                  <i className="bi bi-file-earmark-arrow-down zr-dl-icon zr-dl-icon--template"></i>
+                  <span>
+                    <strong>Blank Template</strong>
+                    <small>Empty report form PDF</small>
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
 
           <button type="button" className="zr-btn zr-btn-back" onClick={refreshTableNow} disabled={isTableRefreshing}>
-            <i className="bi bi-arrow-clockwise me-2"></i>
-            {isTableRefreshing ? 'Refreshing...' : 'Refresh Table'}
+            <i className={`bi bi-arrow-clockwise me-2${isTableRefreshing ? ' zr-spin' : ''}`}></i>
+            {isTableRefreshing ? 'Refreshing…' : 'Refresh Table'}
           </button>
         </div>
       </div>
@@ -1989,34 +1800,22 @@ export default function Zone_Report() {
 
           <div className="col-12 col-md-6 col-xl-3">
             <label className="zr-label">Filter By Gender</label>
-            <select className="zr-select form-select" defaultValue="All Genders">
-              {FILTER_GENDERS.map(gender => (
-                <option key={gender} value={gender}>
-                  {gender}
-                </option>
-              ))}
+            <select className="zr-select form-select" value={filterGender} onChange={e => setFilterGender(e.target.value)}>
+              {FILTER_GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
 
           <div className="col-12 col-md-6 col-xl-3">
             <label className="zr-label">Filter By Dispatcher</label>
             <select className="zr-select form-select" value={filterDispatcher} onChange={e => setFilterDispatcher(e.target.value)}>
-              {dispatcherOptions.map(dispatcher => (
-                <option key={dispatcher} value={dispatcher}>
-                  {dispatcher}
-                </option>
-              ))}
+              {dispatcherOptions.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
 
           <div className="col-12 col-md-6 col-xl-3">
             <label className="zr-label">Sort By Date</label>
-            <select className="zr-select form-select" defaultValue="Most Recent">
-              {FILTER_SORT.map(sort => (
-                <option key={sort} value={sort}>
-                  {sort}
-                </option>
-              ))}
+            <select className="zr-select form-select" value={filterSort} onChange={e => setFilterSort(e.target.value)}>
+              {FILTER_SORT.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
 
@@ -2068,63 +1867,62 @@ export default function Zone_Report() {
                   const emergencyDetail = report.emergencyDetails ?? report.emergency_details
                   const incidentDetail = report.incidentDetails ?? report.incident_details
                   const detail = report.report_type === 'Emergency' ? emergencyDetail : incidentDetail
-                  const dispatcher = detail?.dispatcher_name || 'N/A'
-                  const location =
-                    primaryClient?.incident_address?.trim() || report.geographicType?.name || report.geographic_type?.name || zoneName || 'N/A'
-                  const responders = (report.responders ?? [])
-                    .map(responder => responder.name)
-                    .filter((name): name is string => Boolean(name && name.trim()))
+                  const transfer = report.ambulanceTransfer ?? report.ambulance_transfer
+                  const dispatcher = transfer?.dispatcher?.trim() || detail?.dispatcher_name?.trim() || '—'
+                  const location = report.report_type === 'Incident'
+                    ? (incidentDetail?.incident_barangay?.trim() || primaryClient?.incident_address?.trim() || '—')
+                    : (primaryClient?.incident_address?.trim() || report.geographicType?.name || report.geographic_type?.name || zoneName || '—')
+                  const responderStr = transfer?.responders?.trim() ||
+                    (report.responders ?? []).map(r => r.name).filter((n): n is string => Boolean(n?.trim())).join(', ') || '—'
                   const typeClass = report.report_type === 'Emergency' ? 'zr-type-emergency' : 'zr-type-incident'
                   const isDeleting = deletingReportIds.includes(report.id)
+                  const isViewing = viewingReportId === report.id
 
                   return (
-                    <tr key={report.id}>
+                    <tr key={report.id} style={isViewing ? { background: '#e8f4fd', outline: '2px solid #0d6efd' } : undefined}>
                       <td data-label="Date">{formatDate(report.date_reported)}</td>
-                      <td data-label="Client Name">{highlightMatch(primaryClient?.full_name || 'N/A')}</td>
-                      <td data-label="Age">{primaryClient?.age ?? 'N/A'}</td>
-                      <td data-label="Gender">{primaryClient?.gender || 'N/A'}</td>
+                      <td data-label="Client Name">{highlightMatch(primaryClient?.full_name || '—')}</td>
+                      <td data-label="Age">{primaryClient?.age ?? '—'}</td>
+                      <td data-label="Gender">{primaryClient?.gender || '—'}</td>
                       <td data-label="Type">
                         <span className={`zr-type-badge ${typeClass}`}>{highlightMatch(report.report_type)}</span>
                       </td>
                       <td data-label="Location">{highlightMatch(location)}</td>
                       <td data-label="Dispatcher">{highlightMatch(dispatcher)}</td>
-                      <td data-label="Responders">{highlightMatch(responders.length > 0 ? responders.join(', ') : 'N/A')}</td>
+                      <td data-label="Responders">{highlightMatch(responderStr)}</td>
                       <td data-label="Time">{formatTime(detail?.incident_time || report.time_reported)}</td>
                       <td data-label="Actions" className="zr-actions-cell">
                         <div className="zr-actions-group">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary me-1"
-                          onClick={() => openEditModal(report.id)}
-                          disabled={isDeleting}
-                          aria-label="Edit report"
-                          title="Edit"
-                        >
-                          <i className="bi bi-pencil-square"></i>
-                          <span className="zr-action-text">Edit</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-secondary"
-                          onClick={() => openViewModal(report.id)}
-                          disabled={isDeleting}
-                          aria-label="View report"
-                          title="View"
-                        >
-                          <i className="bi bi-eye"></i>
-                          <span className="zr-action-text">View</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger ms-1"
-                          onClick={() => deleteReport(report.id)}
-                          disabled={isDeleting}
-                          aria-label={isDeleting ? 'Deleting report' : 'Delete report'}
-                          title={isDeleting ? 'Deleting...' : 'Delete'}
-                        >
-                          <i className={`bi ${isDeleting ? 'bi-arrow-repeat' : 'bi-trash3'}`}></i>
-                          <span className="zr-action-text">{isDeleting ? 'Deleting...' : 'Delete'}</span>
-                        </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary me-1"
+                            onClick={() => openEditModal(report.id)}
+                            disabled={isDeleting}
+                            title="Edit"
+                          >
+                            <i className="bi bi-pencil-square"></i>
+                            <span className="zr-action-text"> Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary me-1"
+                            onClick={() => openViewModal(report.id)}
+                            disabled={isDeleting}
+                            title="View"
+                          >
+                            <i className="bi bi-eye"></i>
+                            <span className="zr-action-text"> View</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => deleteReport(report.id)}
+                            disabled={isDeleting}
+                            title={isDeleting ? 'Deleting...' : 'Delete'}
+                          >
+                            <i className={`bi ${isDeleting ? 'bi-arrow-repeat' : 'bi-trash3'}`}></i>
+                            <span className="zr-action-text"> {isDeleting ? 'Deleting...' : 'Delete'}</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -2135,6 +1933,7 @@ export default function Zone_Report() {
           </table>
         </div>
       </div>
+
     </section>
   )
 }

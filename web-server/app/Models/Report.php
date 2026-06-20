@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Report extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'reports';
 
@@ -20,12 +21,16 @@ class Report extends Model
         'date_reported',
         'time_reported',
         'status',
+        'latitude',
+        'longitude',
     ];
 
     protected function casts(): array
     {
         return [
             'date_reported' => 'date',
+            'latitude'      => 'float',
+            'longitude'     => 'float',
         ];
     }
 
@@ -57,5 +62,10 @@ class Report extends Model
     public function photos(): HasMany
     {
         return $this->hasMany(ReportPhoto::class, 'report_id');
+    }
+
+    public function ambulanceTransfer(): HasOne
+    {
+        return $this->hasOne(AmbulanceTransfer::class, 'report_id');
     }
 }

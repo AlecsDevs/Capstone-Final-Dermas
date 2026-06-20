@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
+import { OfflineBanner } from './OfflineBanner'
+import { ContextMenu } from './ContextMenu'
 import '../style/sidebar.css'
 import { useSessionWatch } from '../hooks/useSessionWatch'
 
-export const AdminLayout = () => {
+export const AppLayout = () => {
+  const { pathname } = useLocation()
+  const role = pathname.startsWith('/admin') ? 'admin' : 'staff'
+
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const stored = localStorage.getItem('darkMode')
@@ -15,7 +20,6 @@ export const AdminLayout = () => {
   })
   const { otherDeviceJoined, dismiss } = useSessionWatch()
 
-  // Sync dark class on <html> + persist across refreshes
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark')
@@ -24,8 +28,6 @@ export const AdminLayout = () => {
     }
     localStorage.setItem('darkMode', String(darkMode))
   }, [darkMode])
-
-  const handleToggleDarkMode = () => setDarkMode(prev => !prev)
 
   return (
     <div className={darkMode ? 'layout dark-mode' : 'layout'}>
@@ -47,31 +49,31 @@ export const AdminLayout = () => {
               This is just a notice — you have not been logged out. If this wasn't you, please change your password immediately.
             </p>
             <div className="d-flex justify-content-end">
-              <button className="btn btn-warning" onClick={dismiss}>
-                OK, Got It
-              </button>
+              <button className="btn btn-warning" onClick={dismiss}>OK, Got It</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Mobile overlay – clicking it closes the sidebar */}
       {sidebarOpen && (
         <div className="sidebar-overlay d-lg-none" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar role={role} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="layout-body">
         <TopBar
           onToggleSidebar={() => setSidebarOpen(prev => !prev)}
           darkMode={darkMode}
-          onToggleDarkMode={handleToggleDarkMode}
+          onToggleDarkMode={() => setDarkMode(prev => !prev)}
         />
         <main className="main-content">
           <Outlet />
         </main>
       </div>
+
+      <OfflineBanner />
+      <ContextMenu />
     </div>
   )
 }

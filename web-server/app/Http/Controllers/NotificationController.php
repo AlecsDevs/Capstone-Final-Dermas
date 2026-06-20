@@ -30,6 +30,7 @@ class NotificationController extends Controller
             ->limit($limit)
             ->get([
                 'id',
+                'notification_type',
                 'report_id',
                 'actor_username',
                 'report_type',
@@ -37,6 +38,7 @@ class NotificationController extends Controller
                 'submitted_at',
                 'is_read',
                 'read_at',
+                'metadata',
             ]);
 
         $unreadCount = ReportNotification::query()

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -47,17 +48,30 @@ class AuthController extends Controller
                 'ip_address' => $ipAddress,
                 'user_agent' => $userAgent,
             ]);
+
+        ActivityLog::create([
+            'user_id'     => $user->id,
+            'action'      => 'login',
+            'description' => "{$user->full_name} logged in",
+            'ip_address'  => $ipAddress,
+            'user_agent'  => $userAgent,
+            'device_type' => ActivityLog::detectDeviceStatic($userAgent),
+            'browser'     => ActivityLog::detectBrowserStatic($userAgent),
+            'metadata'    => null,
+        ]);
+
         return response()->json([
             'token' => $token->plainTextToken,
             'user'  => [
-                'id'         => $user->id,
-                'username'   => $user->username,
-                'email'      => $user->email,
-                'address'    => $user->address,
+                'id'           => $user->id,
+                'full_name'    => $user->full_name,
+                'username'     => $user->username,
+                'email'        => $user->email,
+                'address'      => $user->address,
                 'phone_number' => $user->phone_number,
-                'role'       => $user->role,
-                'status'     => $user->status,
-                'created_at' => $user->created_at,
+                'role'         => $user->role,
+                'status'       => $user->status,
+                'created_at'   => $user->created_at,
             ],
             'session' => [
                 'device_name' => $deviceName,
@@ -93,7 +107,7 @@ class AuthController extends Controller
     // Get all users (admin only)
     public function index()
     {
-        $users = User::select('id', 'username', 'email', 'address', 'phone_number', 'role', 'status', 'created_at')->get();
+        $users = User::select('id', 'full_name', 'username', 'email', 'address', 'phone_number', 'role', 'status', 'created_at')->get();
         return response()->json($users);
     }
 
@@ -101,24 +115,31 @@ class AuthController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'username' => 'required|string|unique:users',
-            'email'    => 'required|email|unique:users,email',
-            'address'  => 'nullable|string|max:255',
+            'full_name'    => 'required|string|max:255',
+            'username'     => 'required|string|unique:users',
+            'email'        => 'nullable|email|unique:users,email',
+            'address'      => 'nullable|string|max:255',
             'phone_number' => 'nullable|string|max:50',
-            'password' => 'required|string|min:6',
-            'role'     => 'required|in:admin,staff',
-            'status'   => 'nullable|in:active,inactive',
+            'password'     => 'required|string|min:6',
+            'role'         => 'required|in:admin,staff',
+            'status'       => 'nullable|in:active,inactive',
         ]);
 
         $user = User::create([
-            'username' => $request->username,
-            'password' => Hash::make($request->password),
-            'email'    => $request->email,
-            'address'  => $request->address,
+            'full_name'    => $request->full_name,
+            'username'     => $request->username,
+            'password'     => Hash::make($request->password),
+            'email'        => $request->email ?: null,
+            'address'      => $request->address,
             'phone_number' => $request->phone_number,
-            'role'     => $request->role,
-            'status'   => $request->status ?? 'active',
+            'role'         => $request->role,
+            'status'       => $request->status ?? 'active',
         ]);
+
+        ActivityLog::record($request, 'create_user',
+            optional($request->user())->full_name . " created {$request->role} account for {$request->full_name}",
+            ['target_user_id' => $user->id, 'target_username' => $user->username, 'target_role' => $user->role]
+        );
 
         return response()->json([
             'message' => 'User created successfully',
@@ -145,6 +166,18 @@ class AuthController extends Controller
         $user->status = $request->status;
         $user->save();
 
+        $statusLabel = $request->status === 'active' ? 'activated' : 'deactivated';
+        ActivityLog::create([
+            'user_id'     => $user->id,
+            'action'      => 'status_change',
+            'description' => "Account {$statusLabel} by " . (optional($request->user())->full_name ?? 'admin'),
+            'ip_address'  => $request->ip(),
+            'user_agent'  => substr((string) $request->userAgent(), 0, 500),
+            'device_type' => ActivityLog::detectDeviceStatic((string) $request->userAgent()),
+            'browser'     => ActivityLog::detectBrowserStatic((string) $request->userAgent()),
+            'metadata'    => ['new_status' => $request->status, 'by_user_id' => optional($request->user())->id],
+        ]);
+
         return response()->json([
             'message' => 'User status updated successfully',
             'user' => $user,
@@ -157,13 +190,26 @@ class AuthController extends Controller
         $user = User::findOrFail($id);
 
         $validated = $request->validate([
-            'username' => ['required', 'string', Rule::unique('users', 'username')->ignore($user->id)],
-            'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
-            'address' => 'nullable|string|max:255',
+            'full_name'    => 'required|string|max:255',
+            'username'     => ['required', 'string', Rule::unique('users', 'username')->ignore($user->id)],
+            'email'        => ['nullable', 'email', Rule::unique('users', 'email')->ignore($user->id)],
+            'address'      => 'nullable|string|max:255',
             'phone_number' => 'nullable|string|max:50',
         ]);
 
+        $validated['email'] = $validated['email'] ?: null;
         $user->update($validated);
+
+        ActivityLog::create([
+            'user_id'     => $user->id,
+            'action'      => 'profile_update',
+            'description' => "Profile updated by " . (optional($request->user())->full_name ?? 'admin'),
+            'ip_address'  => $request->ip(),
+            'user_agent'  => substr((string) $request->userAgent(), 0, 500),
+            'device_type' => ActivityLog::detectDeviceStatic((string) $request->userAgent()),
+            'browser'     => ActivityLog::detectBrowserStatic((string) $request->userAgent()),
+            'metadata'    => ['by_user_id' => optional($request->user())->id],
+        ]);
 
         return response()->json([
             'message' => 'User profile updated successfully',
@@ -198,6 +244,17 @@ class AuthController extends Controller
                 ->where('tokenable_id', $user->id)
                 ->delete();
         }
+
+        ActivityLog::create([
+            'user_id'     => $user->id,
+            'action'      => 'password_change',
+            'description' => "Password changed by " . (optional($request->user())->full_name ?? 'admin') . ($revokedCount > 0 ? ', all sessions logged out' : ''),
+            'ip_address'  => $request->ip(),
+            'user_agent'  => substr((string) $request->userAgent(), 0, 500),
+            'device_type' => ActivityLog::detectDeviceStatic((string) $request->userAgent()),
+            'browser'     => ActivityLog::detectBrowserStatic((string) $request->userAgent()),
+            'metadata'    => ['revoked_sessions' => $revokedCount, 'by_user_id' => optional($request->user())->id],
+        ]);
 
         return response()->json([
             'message' => 'Password updated successfully',

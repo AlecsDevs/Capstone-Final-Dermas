@@ -178,7 +178,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            <div className="d-flex justify-content-between align-items-center mb-4">
+            <div className="d-flex align-items-center mb-4">
               <div className="form-check">
                 <input
                   className="form-check-input"
@@ -191,13 +191,6 @@ export default function LoginPage() {
                   Remember me
                 </label>
               </div>
-              <a href="#" 
-              onClick={(e) =>{
-                if(loading){
-                  e.preventDefault();
-                }
-              }}
-              className="link-primary-custom  ">Forgot password?</a>
             </div>
 
             <button type="submit" className="btn btn-primary btn-login" disabled={loading }>

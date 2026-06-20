@@ -22,6 +22,7 @@ class Client extends Model
         'contact_number',
         'permanent_address',
         'incident_address',
+        'accident_type',
     ];
 
     public function report(): BelongsTo

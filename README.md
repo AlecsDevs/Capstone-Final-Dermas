@@ -6,6 +6,38 @@ This repository has two parts:
 
 This guide is only for localhost setup. No deployment steps are included.
 
+## 0. System Modules
+
+This project is organized around a small set of connected modules.
+
+### Frontend Modules
+
+- Splash and login: landing screen and authentication entry point.
+- Admin dashboard: summary cards, charts, and system-wide status.
+- Management reports: zone-level report listing and filtering.
+- Zone report workflow: incident report creation, editing, review, photo upload, and submission.
+- User management: admin-only account management.
+- Documents: shared document listing and file actions.
+- Staff dashboard: staff-facing dashboard and report access.
+
+### Backend Modules
+
+- Auth: login, logout, session check, and current-user profile endpoints.
+- Reports: CRUD for reports plus draft sections, submit flow, and summary endpoints.
+- Documents: upload/list/delete for managed files.
+- Notifications: fetch notifications and mark them as read.
+- Public files: public file serving endpoint for shared assets.
+- User administration: admin user list, create, update, status, password, and device logout.
+
+### Main Page To API Map
+
+- Dashboard page -> report summary and system counters.
+- Management report page -> report listing and filters.
+- Zone report page -> report draft sections, photo upload, and submit actions.
+- User management page -> backend user administration endpoints.
+- Documents page -> document endpoints.
+- Staff dashboard -> staff-accessible report and summary views.
+
 ## 1. Requirements
 
 Install these first:

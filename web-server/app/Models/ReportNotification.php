@@ -13,6 +13,7 @@ class ReportNotification extends Model
     protected $table = 'report_notifications';
 
     protected $fillable = [
+        'notification_type',
         'user_id',
         'report_id',
         'actor_user_id',
@@ -22,6 +23,7 @@ class ReportNotification extends Model
         'submitted_at',
         'is_read',
         'read_at',
+        'metadata',
     ];
 
     protected function casts(): array
@@ -30,6 +32,7 @@ class ReportNotification extends Model
             'submitted_at' => 'datetime',
             'is_read' => 'boolean',
             'read_at' => 'datetime',
+            'metadata' => 'array',
         ];
     }
 

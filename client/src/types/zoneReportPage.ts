@@ -1,4 +1,4 @@
-import type { FormState, PersonInfo, ReportKind } from './zoneReport'
+import type { FormState, PersonFormData, PersonInfo, ReportKind } from './zoneReport'
 
 export interface GeographicTypeItem {
   id: number
@@ -20,11 +20,18 @@ export interface ReportDetailItem {
   dispatcher_name?: string | null
   nature_of_call?: string | null
   incident_time?: string | null
+  incident_barangay?: string | null
 }
 
 export interface ReportResponderItem {
   id: number
   name: string | null
+}
+
+export interface AmbulanceTransferTableItem {
+  dispatcher?: string | null
+  responders?: string | null
+  ambulance_driver?: string | null
 }
 
 export interface ReportTableItem {
@@ -40,6 +47,8 @@ export interface ReportTableItem {
   incidentDetails?: ReportDetailItem | null
   incident_details?: ReportDetailItem | null
   responders?: ReportResponderItem[]
+  ambulanceTransfer?: AmbulanceTransferTableItem | null
+  ambulance_transfer?: AmbulanceTransferTableItem | null
 }
 
 export interface CreateReportDraft {
@@ -49,6 +58,7 @@ export interface CreateReportDraft {
   form: FormState
   uploadedPhoto: string | null
   updatedAt: number
+  personForms?: PersonFormData[]
 }
 
 export type RawReportPayload = Partial<ReportTableItem> & {

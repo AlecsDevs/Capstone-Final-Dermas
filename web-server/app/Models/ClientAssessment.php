@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ClientAssessment extends Model
 {
@@ -17,23 +18,35 @@ class ClientAssessment extends Model
     protected $fillable = [
         'client_id',
         'chief_complaint',
+        'loc',
         'airway',
         'breathing',
-        'circulation_support',
-        'wound_care',
-        'miscellaneous',
-        'history_of_coronary_disease',
-        'collapse_witness',
-        'time_of_collapse',
-        'start_of_cpr',
-        'defibrillation_time',
-        'cpr_duration',
-        'rosc',
-        'transferred_to_hospital',
+        'circulation',
+        'capillary_refill',
+        'pupils',
+        'ob_lmp',
+        'ob_aog',
+        'ob_edd',
+        'ob_gravida',
+        'ob_para',
+        'ob_term',
+        'ob_preterm',
+        'ob_abortion',
+        'ob_living',
     ];
 
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class, 'client_id');
+    }
+
+    public function vitalSigns(): HasMany
+    {
+        return $this->hasMany(VitalSign::class, 'client_assessment_id');
+    }
+
+    public function glasgowScores(): HasMany
+    {
+        return $this->hasMany(GlasgowScore::class, 'client_assessment_id');
     }
 }

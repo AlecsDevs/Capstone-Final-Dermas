@@ -19,7 +19,10 @@ class IncidentDetail extends Model
 
     protected $fillable = [
         'report_id',
+        'type_of_incident',
         'type_of_hazard',
+        'severity_level',
+        'incident_barangay',
         'nature_of_call',
         'incident_date',
         'incident_time',

@@ -220,17 +220,6 @@
   border: none;
 }
 
-/* Forgot password link */
-.link-primary-custom {
-  color: #3b82f6;
-  font-size: 0.875rem;
-  text-decoration: none;
-}
-
-.link-primary-custom:hover {
-  color: #1d4ed8;
-  text-decoration: underline;
-}
 
 html.dark .login-theme-toggle {
   border-color: rgba(148, 163, 184, 0.46);
