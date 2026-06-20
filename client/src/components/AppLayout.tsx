@@ -66,6 +66,7 @@ export const AppLayout = () => {
           onToggleSidebar={() => setSidebarOpen(prev => !prev)}
           darkMode={darkMode}
           onToggleDarkMode={() => setDarkMode(prev => !prev)}
+          role={role}
         />
         <main className="main-content">
           <Outlet />

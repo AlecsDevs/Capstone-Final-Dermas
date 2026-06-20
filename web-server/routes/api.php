@@ -71,4 +71,17 @@ Route::middleware(['auth:sanctum', 'device.bound'])->group(function () {
         );
         return response()->json(['message' => 'Daily emergency report notification sent.']);
     });
+
+    // Droplet disk storage info (admin only — reads server disk via PHP built-ins)
+    Route::get('/system/storage', function () {
+        $total = disk_total_space('/');
+        $free  = disk_free_space('/');
+        $used  = $total - $free;
+        return response()->json([
+            'total_gb'     => round($total / 1073741824, 1),
+            'used_gb'      => round($used  / 1073741824, 1),
+            'free_gb'      => round($free  / 1073741824, 1),
+            'percent_used' => $total > 0 ? (int) round(($used / $total) * 100) : 0,
+        ]);
+    });
 });

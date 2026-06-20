@@ -35,6 +35,14 @@ interface TopBarProps {
   onToggleSidebar: () => void
   darkMode: boolean
   onToggleDarkMode: () => void
+  role?: 'admin' | 'staff'
+}
+
+interface StorageInfo {
+  total_gb: number
+  used_gb: number
+  free_gb: number
+  percent_used: number
 }
 
 interface DailyReportMeta {
@@ -176,8 +184,22 @@ const formatTime = (value: string) => {
   })
 }
 
-export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarProps) => {
+export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode, role }: TopBarProps) => {
   const [nabuaWeather, setNabuaWeather] = useState<CurrentWeather | null>(null)
+  const [storage, setStorage] = useState<StorageInfo | null>(null)
+
+  useEffect(() => {
+    if (role !== 'admin') return
+    const fetchStorage = async () => {
+      try {
+        const res = await api.get<StorageInfo>('/system/storage')
+        setStorage(res.data)
+      } catch { /* non-critical */ }
+    }
+    fetchStorage()
+    const iv = setInterval(fetchStorage, 5 * 60 * 1000)
+    return () => clearInterval(iv)
+  }, [role])
 
   useEffect(() => {
     let cancelled = false
@@ -446,6 +468,34 @@ export const TopBar = ({ onToggleSidebar, darkMode, onToggleDarkMode }: TopBarPr
             <span className="topbar-weather-temp">{nabuaWeather.temperature}°C</span>
             <span className="topbar-weather-label">{weatherLabel(nabuaWeather.weathercode, nabuaWeather.temperature)}</span>
             <span className="topbar-weather-loc">· Nabua</span>
+          </div>
+        )}
+
+        {/* Droplet storage chip — admin only */}
+        {role === 'admin' && storage && (
+          <div
+            className="topbar-storage"
+            title={`Droplet disk: ${storage.used_gb} GB used · ${storage.free_gb} GB free · ${storage.percent_used}% used`}
+          >
+            <i className="bi bi-hdd-fill topbar-storage-icon" />
+            <div className="topbar-storage-body">
+              <div className="topbar-storage-bar">
+                <div
+                  className="topbar-storage-fill"
+                  style={{
+                    width: `${storage.percent_used}%`,
+                    background: storage.percent_used > 85
+                      ? '#ef4444'
+                      : storage.percent_used > 70
+                        ? '#f59e0b'
+                        : '#22c55e',
+                  }}
+                />
+              </div>
+              <span className="topbar-storage-label">
+                {storage.used_gb}/{storage.total_gb} GB
+              </span>
+            </div>
           </div>
         )}
 
