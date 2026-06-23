@@ -27,9 +27,13 @@ class SecurityHeaders
         // Restrict browser feature access
         $response->headers->set('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
 
-        // Prevent caching of sensitive API responses
-        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-        $response->headers->set('Pragma', 'no-cache');
+        // Prevent caching of sensitive API responses (but allow public file caching)
+        $contentType = $response->headers->get('Content-Type', '');
+        $isFile = str_contains($contentType, 'image/') || str_contains($contentType, 'application/pdf');
+        if (!$isFile) {
+            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+            $response->headers->set('Pragma', 'no-cache');
+        }
 
         // HSTS — only sent over HTTPS to avoid breaking HTTP dev
         if ($request->secure()) {
