@@ -925,7 +925,6 @@ export default function Zone_Report() {
     }
     if (step === 2) {
       if (reportKind === 'incident') {
-<<<<<<< HEAD
         personForms.forEach((pf, i) => {
           const pfx = `p${i}-`
           if (!pf.typeOfHazard.trim()) errors[`${pfx}typeOfHazard`] = 'Type of hazard is required.'
@@ -934,14 +933,6 @@ export default function Zone_Report() {
           if (!pf.incidentDate.trim()) errors[`${pfx}incidentDate`] = 'Incident date is required.'
           if (!pf.incidentTime.trim()) errors[`${pfx}incidentTime`] = 'Incident time is required.'
         })
-=======
-        const pf0 = personForms[0] ?? createEmptyPersonForm()
-        if (!pf0.typeOfHazard.trim()) errors['p0-typeOfHazard'] = 'Type of hazard is required.'
-        if (!pf0.severityLevel.trim()) errors['p0-severityLevel'] = 'Severity level is required.'
-        if (!pf0.incidentBarangay.trim()) errors['p0-incidentBarangay'] = 'Barangay / location is required.'
-        if (!pf0.incidentDate.trim()) errors['p0-incidentDate'] = 'Incident date is required.'
-        if (!pf0.incidentTime.trim()) errors['p0-incidentTime'] = 'Incident time is required.'
->>>>>>> 27bce3d (Update frontend features and reports)
       } else {
         personForms.forEach((pf, i) => {
           const pfx = `p${i}-`
@@ -1129,7 +1120,6 @@ export default function Zone_Report() {
           }],
         })
 
-<<<<<<< HEAD
         if (reportKind === 'incident') {
           await api.put(`/reports/${id}/incident-details`, {
             type_of_incident: pf.typeOfHazard || null,
@@ -1173,38 +1163,6 @@ export default function Zone_Report() {
             ob_living: pf.obLiving ? Number(pf.obLiving) : null,
           })
         }
-=======
-        await api.put(`/reports/${id}/emergency-details`, {
-          mechanism_of_injury: pf.mechanism || null,
-          nature_of_illness: pf.natureIllness || null,
-          type_of_emergency: pf.typeEmergency || null,
-          nature_of_call: pf.natureOfCall || null,
-          incident_date: pf.incidentDate,
-          incident_time: toHHMM(pf.incidentTime),
-        })
-        await api.put(`/reports/${id}/assessment`, {
-          chief_complaint: pf.chiefComplaint || null,
-          loc: pf.loc || null,
-          airway: pf.airway || null,
-          breathing: pf.breathing || null,
-          circulation: pf.circulation || null,
-          capillary_refill: pf.capillaryRefill || null,
-          pupils: pf.pupils || null,
-          vital_signs: pf.vitalSigns.filter(vs => vs.bp || vs.rr || vs.pr || vs.temp || vs.spo2),
-          glasgow_scores: pf.glasgowScores.filter(g => g.eye || g.verbal || g.motor).map(g => ({
-            eye: g.eye ? Number(g.eye) : null,
-            verbal: g.verbal ? Number(g.verbal) : null,
-            motor: g.motor ? Number(g.motor) : null,
-          })),
-          ob_lmp: pf.obLmp || null, ob_aog: pf.obAog || null, ob_edd: pf.obEdd || null,
-          ob_gravida: pf.obGravida ? Number(pf.obGravida) : null,
-          ob_para: pf.obPara ? Number(pf.obPara) : null,
-          ob_term: pf.obTerm ? Number(pf.obTerm) : null,
-          ob_preterm: pf.obPreterm ? Number(pf.obPreterm) : null,
-          ob_abortion: pf.obAbortion ? Number(pf.obAbortion) : null,
-          ob_living: pf.obLiving ? Number(pf.obLiving) : null,
-        })
->>>>>>> 27bce3d (Update frontend features and reports)
 
         const photoFile = uploadedPhotoFiles[i] ?? (pf.uploadedPhoto ? dataUrlToFile(pf.uploadedPhoto, `report-${id}-photo`) : null)
         if (photoFile) {
