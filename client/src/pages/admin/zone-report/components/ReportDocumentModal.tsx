@@ -116,9 +116,10 @@ interface ReportPhotoItem {
   photo_path: string
 }
 
-const API_BASE_URL =
-  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ??
-  '/api'
+const _RAW_API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '')
+const API_BASE_URL = _RAW_API_URL
+  ? (/^https?:\/\/[^/]+$/i.test(_RAW_API_URL) ? `${_RAW_API_URL}/api` : _RAW_API_URL)
+  : '/api'
 
 const SERVER_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
 const encodePathSegments = (value: string) => value.split('/').map(segment => encodeURIComponent(segment)).join('/')
