@@ -89,6 +89,7 @@ function EVal({
         <select autoFocus value={draft} style={inputStyle}
           onChange={e => { setDraft(e.target.value); commit(e.target.value) }}
           onBlur={() => commit()}>
+          {!draft && <option value="">— Select —</option>}
           {options.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
       )

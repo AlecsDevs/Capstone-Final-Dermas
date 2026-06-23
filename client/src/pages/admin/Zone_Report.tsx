@@ -925,6 +925,7 @@ export default function Zone_Report() {
     }
     if (step === 2) {
       if (reportKind === 'incident') {
+<<<<<<< HEAD
         personForms.forEach((pf, i) => {
           const pfx = `p${i}-`
           if (!pf.typeOfHazard.trim()) errors[`${pfx}typeOfHazard`] = 'Type of hazard is required.'
@@ -933,6 +934,14 @@ export default function Zone_Report() {
           if (!pf.incidentDate.trim()) errors[`${pfx}incidentDate`] = 'Incident date is required.'
           if (!pf.incidentTime.trim()) errors[`${pfx}incidentTime`] = 'Incident time is required.'
         })
+=======
+        const pf0 = personForms[0] ?? createEmptyPersonForm()
+        if (!pf0.typeOfHazard.trim()) errors['p0-typeOfHazard'] = 'Type of hazard is required.'
+        if (!pf0.severityLevel.trim()) errors['p0-severityLevel'] = 'Severity level is required.'
+        if (!pf0.incidentBarangay.trim()) errors['p0-incidentBarangay'] = 'Barangay / location is required.'
+        if (!pf0.incidentDate.trim()) errors['p0-incidentDate'] = 'Incident date is required.'
+        if (!pf0.incidentTime.trim()) errors['p0-incidentTime'] = 'Incident time is required.'
+>>>>>>> 27bce3d (Update frontend features and reports)
       } else {
         personForms.forEach((pf, i) => {
           const pfx = `p${i}-`
@@ -1020,6 +1029,74 @@ export default function Zone_Report() {
       const fallbackDate = now.toISOString().slice(0, 10)
       const fallbackTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
 
+      // ── Incident: one report, all persons in one clients call ──
+      if (reportKind === 'incident') {
+        const pf0 = personForms[0] ?? createEmptyPersonForm()
+
+        const reportRes = await api.post('/reports', {
+          report_type: 'Incident',
+          geographic_type_id: geographicTypeId,
+          date_reported: pf0.incidentDate || fallbackDate,
+          time_reported: toHHMM(pf0.incidentTime) || fallbackTime,
+          latitude: null,
+          longitude: null,
+        })
+        const id = reportRes.data?.report?.id as number | undefined
+        if (!id) throw new Error('Failed to create report draft.')
+
+        const clients = people
+          .map(person => {
+            const fullName = [person.firstName, person.middleName, person.lastName].map(p => p.trim()).filter(Boolean).join(' ')
+            if (!fullName) return null
+            return {
+              full_name: fullName,
+              age: person.age ? Number(person.age) : null,
+              gender: person.gender || null,
+              nationality: person.nationality.trim() || null,
+              contact_number: person.contactNumber.trim() || null,
+              permanent_address: person.permanentAddress.trim() || null,
+              incident_address: null,
+              accident_type: null,
+            }
+          })
+          .filter(Boolean)
+
+        await api.put(`/reports/${id}/clients`, { clients })
+
+        await api.put(`/reports/${id}/incident-details`, {
+          type_of_incident: pf0.typeOfHazard || null,
+          type_of_hazard: pf0.typeOfHazard || null,
+          severity_level: pf0.severityLevel || null,
+          incident_barangay: pf0.incidentBarangay || null,
+          incident_date: pf0.incidentDate,
+          incident_time: toHHMM(pf0.incidentTime),
+        })
+
+        await api.put(`/reports/${id}/ambulance-transfer`, {
+          ambulance_driver: pf0.ambulanceDriver || null,
+          dispatcher: pf0.dispatcher || null,
+          responders: pf0.ambulanceResponders || null,
+          receiving_facility: pf0.receivingFacility || null,
+          receiving_personnel: pf0.receivingPersonnel || null,
+        })
+
+        const photoFile = uploadedPhotoFiles[0] ?? (pf0.uploadedPhoto ? dataUrlToFile(pf0.uploadedPhoto, `report-${id}-photo`) : null)
+        if (photoFile) {
+          const fd = new FormData(); fd.append('photo', photoFile)
+          await api.post(`/reports/${id}/photos/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+        }
+
+        const submitRes = await api.post(`/reports/${id}/submit`)
+        if (submitRes?.data?.report) upsertTableReport(submitRes.data.report)
+
+        refreshReports().catch(() => undefined)
+        clearCreateDraft()
+        closeModal()
+        showMessage('Success', `Incident report submitted with ${people.length} affected person${people.length > 1 ? 's' : ''}.`)
+        return
+      }
+
+      // ── Emergency: one report per person ───────────────────────
       let lastResponse: { data: { report?: RawReportPayload } } | null = null
 
       for (let i = 0; i < people.length; i++) {
@@ -1028,12 +1105,11 @@ export default function Zone_Report() {
         const fullName = [person.firstName, person.middleName, person.lastName].map(p => p.trim()).filter(Boolean).join(' ')
         if (!fullName || !person.gender) continue
 
-        const sharedPf = pf
         const reportRes = await api.post('/reports', {
           report_type: reportKind === 'incident' ? 'Incident' : 'Emergency',
           geographic_type_id: geographicTypeId,
-          date_reported: sharedPf.incidentDate || fallbackDate,
-          time_reported: toHHMM(sharedPf.incidentTime) || fallbackTime,
+          date_reported: pf.incidentDate || fallbackDate,
+          time_reported: toHHMM(pf.incidentTime) || fallbackTime,
           latitude: person.latitude ? parseFloat(person.latitude) : null,
           longitude: person.longitude ? parseFloat(person.longitude) : null,
         })
@@ -1053,6 +1129,7 @@ export default function Zone_Report() {
           }],
         })
 
+<<<<<<< HEAD
         if (reportKind === 'incident') {
           await api.put(`/reports/${id}/incident-details`, {
             type_of_incident: pf.typeOfHazard || null,
@@ -1096,6 +1173,38 @@ export default function Zone_Report() {
             ob_living: pf.obLiving ? Number(pf.obLiving) : null,
           })
         }
+=======
+        await api.put(`/reports/${id}/emergency-details`, {
+          mechanism_of_injury: pf.mechanism || null,
+          nature_of_illness: pf.natureIllness || null,
+          type_of_emergency: pf.typeEmergency || null,
+          nature_of_call: pf.natureOfCall || null,
+          incident_date: pf.incidentDate,
+          incident_time: toHHMM(pf.incidentTime),
+        })
+        await api.put(`/reports/${id}/assessment`, {
+          chief_complaint: pf.chiefComplaint || null,
+          loc: pf.loc || null,
+          airway: pf.airway || null,
+          breathing: pf.breathing || null,
+          circulation: pf.circulation || null,
+          capillary_refill: pf.capillaryRefill || null,
+          pupils: pf.pupils || null,
+          vital_signs: pf.vitalSigns.filter(vs => vs.bp || vs.rr || vs.pr || vs.temp || vs.spo2),
+          glasgow_scores: pf.glasgowScores.filter(g => g.eye || g.verbal || g.motor).map(g => ({
+            eye: g.eye ? Number(g.eye) : null,
+            verbal: g.verbal ? Number(g.verbal) : null,
+            motor: g.motor ? Number(g.motor) : null,
+          })),
+          ob_lmp: pf.obLmp || null, ob_aog: pf.obAog || null, ob_edd: pf.obEdd || null,
+          ob_gravida: pf.obGravida ? Number(pf.obGravida) : null,
+          ob_para: pf.obPara ? Number(pf.obPara) : null,
+          ob_term: pf.obTerm ? Number(pf.obTerm) : null,
+          ob_preterm: pf.obPreterm ? Number(pf.obPreterm) : null,
+          ob_abortion: pf.obAbortion ? Number(pf.obAbortion) : null,
+          ob_living: pf.obLiving ? Number(pf.obLiving) : null,
+        })
+>>>>>>> 27bce3d (Update frontend features and reports)
 
         const photoFile = uploadedPhotoFiles[i] ?? (pf.uploadedPhoto ? dataUrlToFile(pf.uploadedPhoto, `report-${id}-photo`) : null)
         if (photoFile) {
@@ -1103,13 +1212,12 @@ export default function Zone_Report() {
           await api.post(`/reports/${id}/photos/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
         }
 
-        const ambulancePf = pf
         await api.put(`/reports/${id}/ambulance-transfer`, {
-          ambulance_driver: ambulancePf.ambulanceDriver || null,
-          dispatcher: ambulancePf.dispatcher || null,
-          responders: ambulancePf.ambulanceResponders || null,
-          receiving_facility: ambulancePf.receivingFacility || null,
-          receiving_personnel: ambulancePf.receivingPersonnel || null,
+          ambulance_driver: pf.ambulanceDriver || null,
+          dispatcher: pf.dispatcher || null,
+          responders: pf.ambulanceResponders || null,
+          receiving_facility: pf.receivingFacility || null,
+          receiving_personnel: pf.receivingPersonnel || null,
         })
 
         lastResponse = await api.post(`/reports/${id}/submit`)
@@ -1490,6 +1598,29 @@ export default function Zone_Report() {
           }}
           onAddPerson={addPerson}
           onRemovePerson={removePerson}
+        />
+      )
+    }
+
+    // Incident step 2 — Disaster Details are shared across all persons
+    if (reportKind === 'incident' && currentStep === 2) {
+      const pf0 = personForms[0] ?? createEmptyPersonForm()
+      const errors0: Record<string, string> = {}
+      Object.entries(fieldErrors).forEach(([k, v]) => {
+        if (k.startsWith('p0-')) errors0[k.slice(3)] = v
+      })
+      const onSharedChange = (key: string, value: string) => {
+        setPersonForms(prev => prev.map(pf => ({ ...pf, [key]: value })))
+      }
+      return (
+        <IncidentReportDetailsStep
+          typeOfHazard={pf0.typeOfHazard}
+          severityLevel={pf0.severityLevel}
+          incidentBarangay={pf0.incidentBarangay}
+          incidentDate={pf0.incidentDate}
+          incidentTime={pf0.incidentTime}
+          errors={errors0}
+          onChange={onSharedChange}
         />
       )
     }
