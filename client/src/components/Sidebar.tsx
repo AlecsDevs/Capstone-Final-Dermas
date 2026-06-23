@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import adminAvatar from "../assets/Mdrrmo_logo.png";
 import { useAuth } from "../context/AuthContext";
+import { useOnlineStatus } from "../offline/useOnlineStatus";
 
 const REPORT_ZONES = [
   { name: 'Rail Road', color: '#2563eb' },
@@ -25,6 +26,7 @@ interface SidebarProps {
 export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProps) => {
   const location                  = useLocation();
   const { logout }                = useAuth();
+  const online                    = useOnlineStatus();
   const [showModal, setShowModal] = useState(false);
   const reportsBasePath           = role === 'admin' ? '/admin/zonal-reports' : '/staff/zonal-reports'
   const reportsRouteActive        =
@@ -199,6 +201,15 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
         <img src={adminAvatar} alt="Avatar" className="avatar mt-4" />
         <div className="admin-label text-center">MDRRMO</div>
         <p className="sidebar-role">{role === 'admin' ? 'Admin' : 'Staff'}</p>
+
+        {!online && (
+          <div className="sidebar-offline-indicator">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M10.706 3.294A12.545 12.545 0 0 0 8 3C5.259 3 2.723 3.994.757 5.659l1.415 1.415A10.526 10.526 0 0 1 8 5c.83 0 1.636.097 2.407.274l.299-1.98ZM5.797 7.801A7.544 7.544 0 0 1 8 7.5a7.54 7.54 0 0 1 4.484 1.464l-1.418 1.418A5.543 5.543 0 0 0 8 9.5a5.544 5.544 0 0 0-2.658.681L4.56 8.4a7.51 7.51 0 0 1 1.237-.599Zm3.484 4.032L8 13.118l-1.281-1.285A2.545 2.545 0 0 1 8 11.5c.463 0 .898.126 1.281.333ZM.146.146a.5.5 0 0 1 .708 0L16 15.293l-.708.707L.146.854a.5.5 0 0 1 0-.708Z"/>
+            </svg>
+            <span>Offline Mode</span>
+          </div>
+        )}
 
         <nav className="mt-3 w-100 flex-grow-1" id="tour-sidebar-nav">
           {role === 'admin' ? adminLinks : staffLinks}

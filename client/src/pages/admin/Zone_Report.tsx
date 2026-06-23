@@ -15,16 +15,21 @@ import '../../style/emergency-report.css'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ClientInformationStep } from './zone-report/steps/ClientInformationStep'
 import { EmergencyIncidentDetailsStep } from './zone-report/steps/EmergencyIncidentDetailsStep'
+import { IncidentReportDetailsStep } from './zone-report/steps/IncidentReportDetailsStep'
 import { AssessmentCareStep } from './zone-report/steps/AssessmentCareStep'
 import { AmbulanceTransferStep } from './zone-report/steps/AmbulanceTransferStep'
 import { ReviewSubmitStep } from './zone-report/steps/ReviewSubmitStep'
 import { ZoneReportStepper } from './zone-report/stepper/ZoneReportStepper'
+import { ReportTypeSelectionStep } from './zone-report/stepper/ReportTypeSelectionStep'
 import { EMERGENCY_STEPS } from './zone-report/stepper/emergencySteps'
+import { INCIDENT_STEPS } from './zone-report/stepper/incidentSteps'
 import { ReportDocumentModal, type ReportDocumentData } from './zone-report/components/ReportDocumentModal'
 import { ReportEditModal, type EditReportPayload } from './zone-report/components/ReportEditModal'
 import { PatientCareReportView } from './zone-report/views/PatientCareReportView'
 import { buildPcrData, capturePcrToPdf } from './zone-report/utils/pcrUtils'
 import api from '../../api/axios'
+import { queueFullReport } from '../../offline/syncManager'
+import { db, type PendingFullReport } from '../../offline/db'
 import {
   INITIAL_FORM,
   createEmptyPerson,
@@ -61,7 +66,7 @@ const getZoneNameFromSlug = (slug?: string) => {
   return ZONES.find(zone => toZoneSlug(zone) === slug) ?? null
 }
 
-const FILTER_TYPES = ['All Reports', 'Emergency']
+const FILTER_TYPES = ['All Reports', 'Emergency', 'Incident']
 const FILTER_GENDERS = ['All Genders', 'Male', 'Female']
 const FILTER_SORT = ['Most Recent', 'Oldest First']
 
@@ -144,7 +149,7 @@ export default function Zone_Report() {
   const roleBase = pathname.startsWith('/staff') ? '/staff' : '/admin'
   const zoneName = getZoneNameFromSlug(zoneSlug)
   const [open, setOpen] = useState(false)
-  const [currentStep, setCurrentStep] = useState(1)
+  const [currentStep, setCurrentStep] = useState(0)
   const [reportKind, setReportKind] = useState<Exclude<ReportKind, null>>('emergency')
   const [isSaving, setIsSaving] = useState(false)
   const [geographicTypes, setGeographicTypes] = useState<GeographicTypeItem[]>([])
@@ -181,6 +186,23 @@ export default function Zone_Report() {
   const [downloadsOpen, setDownloadsOpen] = useState(false)
   const downloadsMenuRef = useRef<HTMLDivElement>(null)
   const draftStorageKey = useMemo(() => `${ZONE_REPORT_DRAFT_PREFIX}${zoneName ?? 'unknown'}`, [zoneName])
+  const [pendingOfflineRows, setPendingOfflineRows] = useState<PendingFullReport[]>([])
+
+  const refreshPendingOfflineRows = useCallback(async () => {
+    const rows = await db.pendingFullReports.orderBy('createdAt').toArray()
+    setPendingOfflineRows(rows)
+  }, [])
+
+  useEffect(() => {
+    refreshPendingOfflineRows()
+    const handler = () => setTimeout(() => refreshPendingOfflineRows(), 1500)
+    window.addEventListener('online', handler)
+    window.addEventListener('mdrrmo-offline-synced', handler)
+    return () => {
+      window.removeEventListener('online', handler)
+      window.removeEventListener('mdrrmo-offline-synced', handler)
+    }
+  }, [refreshPendingOfflineRows])
 
   const showMessage = (title: string, body: string) => {
     setMessageState({ open: true, title, body })
@@ -282,8 +304,10 @@ export default function Zone_Report() {
 
     try {
       const parsed = JSON.parse(rawDraft) as Partial<CreateReportDraft>
-      const nextKind: Exclude<ReportKind, null> = 'emergency'
-      const nextStep = Math.min(Math.max(Number(parsed.currentStep ?? 1), 1), EMERGENCY_STEPS.length)
+      const nextKind: Exclude<ReportKind, null> =
+        (parsed.reportKind as Exclude<ReportKind, null>) === 'incident' ? 'incident' : 'emergency'
+      const kindSteps = nextKind === 'incident' ? INCIDENT_STEPS : EMERGENCY_STEPS
+      const nextStep = Math.min(Math.max(Number(parsed.currentStep ?? 1), 1), kindSteps.length)
 
       const parsedPeople = Array.isArray(parsed.people) && parsed.people.length > 0 ? parsed.people : [createEmptyPerson()]
       setReportKind(nextKind)
@@ -345,15 +369,21 @@ export default function Zone_Report() {
       }
 
       setTableReports(incoming)
+      db.cachedData.put({ key: `reports-${zoneName}`, data: JSON.stringify(incoming), fetchedAt: Date.now() }).catch(() => undefined)
     } catch {
-      setTableReports([])
+      const cached = await db.cachedData.get(`reports-${zoneName}`).catch(() => null)
+      if (cached) {
+        try { setTableReports(JSON.parse(cached.data) as ReportTableItem[]) } catch { setTableReports([]) }
+      } else {
+        setTableReports([])
+      }
     } finally {
       setHasLoadedReports(true)
       setIsTableRefreshing(false)
     }
   }, [zoneName, getGeographicTypeId])
 
-  const steps = EMERGENCY_STEPS
+  const steps = reportKind === 'incident' ? INCIDENT_STEPS : EMERGENCY_STEPS
 
   const dispatcherOptions = useMemo(() => {
     const names = tableReports
@@ -425,7 +455,7 @@ export default function Zone_Report() {
   }
 
   const resetStepper = () => {
-    setCurrentStep(1)
+    setCurrentStep(0)
     setReportKind('emergency')
     setIsSaving(false)
     setPeople([createEmptyPerson()])
@@ -886,21 +916,33 @@ export default function Zone_Report() {
         if (!person.firstName.trim()) errors[`person-${index}-firstName`] = 'First name is required.'
         if (!person.lastName.trim()) errors[`person-${index}-lastName`] = 'Last name is required.'
         if (!person.gender.trim()) errors[`person-${index}-gender`] = 'Gender is required.'
-        if (!person.nationality.trim()) errors[`person-${index}-nationality`] = 'Nationality is required.'
-        if (!person.permanentAddress.trim()) errors[`person-${index}-permanentAddress`] = 'Permanent address is required.'
-        if (!person.incidentLocation.trim()) errors[`person-${index}-incidentLocation`] = 'Location of incident is required.'
+        if (reportKind !== 'incident') {
+          if (!person.nationality.trim()) errors[`person-${index}-nationality`] = 'Nationality is required.'
+          if (!person.incidentLocation.trim()) errors[`person-${index}-incidentLocation`] = 'Location of incident is required.'
+        }
       })
       return errors
     }
     if (step === 2) {
-      personForms.forEach((pf, i) => {
-        const pfx = `p${i}-`
-        if (!pf.mechanism.trim()) errors[`${pfx}mechanism`] = 'Mechanism of injury/illness is required.'
-        if (!pf.natureIllness.trim()) errors[`${pfx}natureIllness`] = 'Nature of illness is required.'
-        if (!pf.typeEmergency.trim()) errors[`${pfx}typeEmergency`] = 'Type of emergency is required.'
-        if (!pf.incidentDate.trim()) errors[`${pfx}incidentDate`] = 'Incident date is required.'
-        if (!pf.incidentTime.trim()) errors[`${pfx}incidentTime`] = 'Incident time is required.'
-      })
+      if (reportKind === 'incident') {
+        personForms.forEach((pf, i) => {
+          const pfx = `p${i}-`
+          if (!pf.typeOfHazard.trim()) errors[`${pfx}typeOfHazard`] = 'Type of hazard is required.'
+          if (!pf.severityLevel.trim()) errors[`${pfx}severityLevel`] = 'Severity level is required.'
+          if (!pf.incidentBarangay.trim()) errors[`${pfx}incidentBarangay`] = 'Barangay / location is required.'
+          if (!pf.incidentDate.trim()) errors[`${pfx}incidentDate`] = 'Incident date is required.'
+          if (!pf.incidentTime.trim()) errors[`${pfx}incidentTime`] = 'Incident time is required.'
+        })
+      } else {
+        personForms.forEach((pf, i) => {
+          const pfx = `p${i}-`
+          if (!pf.mechanism.trim()) errors[`${pfx}mechanism`] = 'Mechanism of injury/illness is required.'
+          if (!pf.natureIllness.trim()) errors[`${pfx}natureIllness`] = 'Nature of illness is required.'
+          if (!pf.typeEmergency.trim()) errors[`${pfx}typeEmergency`] = 'Type of emergency is required.'
+          if (!pf.incidentDate.trim()) errors[`${pfx}incidentDate`] = 'Incident date is required.'
+          if (!pf.incidentTime.trim()) errors[`${pfx}incidentTime`] = 'Incident time is required.'
+        })
+      }
     }
     if (step === 3) {
       personForms.forEach((pf, i) => {
@@ -957,7 +999,7 @@ export default function Zone_Report() {
   }
 
   const goPrev = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1))
+    setCurrentStep(prev => Math.max(prev - 1, 0))
   }
 
 
@@ -988,7 +1030,7 @@ export default function Zone_Report() {
 
         const sharedPf = pf
         const reportRes = await api.post('/reports', {
-          report_type: 'Emergency',
+          report_type: reportKind === 'incident' ? 'Incident' : 'Emergency',
           geographic_type_id: geographicTypeId,
           date_reported: sharedPf.incidentDate || fallbackDate,
           time_reported: toHHMM(sharedPf.incidentTime) || fallbackTime,
@@ -1010,6 +1052,17 @@ export default function Zone_Report() {
             accident_type: person.accidentType.trim() || null,
           }],
         })
+
+        if (reportKind === 'incident') {
+          await api.put(`/reports/${id}/incident-details`, {
+            type_of_incident: pf.typeOfHazard || null,
+            type_of_hazard: pf.typeOfHazard || null,
+            severity_level: pf.severityLevel || null,
+            incident_barangay: pf.incidentBarangay || null,
+            incident_date: pf.incidentDate,
+            incident_time: toHHMM(pf.incidentTime),
+          })
+        }
 
         if (reportKind === 'emergency') {
           await api.put(`/reports/${id}/emergency-details`, {
@@ -1070,6 +1123,27 @@ export default function Zone_Report() {
       showMessage('Success', n > 1 ? `${n} reports submitted successfully.` : 'Report submitted successfully.')
     } catch (error: unknown) {
       if (error instanceof Error && error.message === 'Please complete the required fields.') return
+
+      // Network error while offline — save to IndexedDB and sync when reconnected
+      const isNetworkError = !(error as { response?: unknown })?.response
+      if (isNetworkError && !navigator.onLine) {
+        const geoId = getGeographicTypeId()
+        if (geoId) {
+          await queueFullReport({
+            geographicTypeId: geoId,
+            zoneName: zoneName ?? '',
+            reportKind,
+            people,
+            personForms,
+          })
+          await refreshPendingOfflineRows()
+          clearCreateDraft()
+          closeModal()
+          showMessage('Saved Offline', 'Your report has been saved locally and will be submitted automatically once you reconnect to the internet.')
+          return
+        }
+      }
+
       showMessage('Submit Failed', extractApiErrorMessage(error, 'Unable to submit report.') + extractApiErrorIssues(error))
     } finally {
       setIsSaving(false)
@@ -1361,11 +1435,24 @@ export default function Zone_Report() {
   }
 
   const renderStepContent = () => {
+    if (currentStep === 0) {
+      return (
+        <ReportTypeSelectionStep
+          reportKind={reportKind}
+          onSelect={(kind) => {
+            setReportKind(kind)
+            setCurrentStep(1)
+          }}
+        />
+      )
+    }
+
     if (currentStep === 1) {
       return (
         <ClientInformationStep
           people={people}
-          reportLabel="emergency"
+          reportLabel={reportKind === 'incident' ? 'incident' : 'emergency'}
+          incidentMode={reportKind === 'incident'}
           errors={fieldErrors}
           onChangePerson={updatePerson}
           onAddPerson={addPerson}
@@ -1446,6 +1533,30 @@ export default function Zone_Report() {
           const multiPerson = people.length > 1
           const multiPatientName = multiPerson ? patientName : undefined
 
+          if (reportKind === 'incident') {
+            if (currentStep === 2) return (
+              <IncidentReportDetailsStep key={pi}
+                typeOfHazard={pf.typeOfHazard}
+                severityLevel={pf.severityLevel}
+                incidentBarangay={pf.incidentBarangay}
+                incidentDate={pf.incidentDate}
+                incidentTime={pf.incidentTime}
+                errors={errorsForPerson}
+                onChange={onPfChange}
+              />
+            )
+            if (currentStep === 3) return (
+              <AmbulanceTransferStep key={pi}
+                patientName={multiPatientName}
+                ambulanceDriver={pf.ambulanceDriver} dispatcher={pf.dispatcher}
+                ambulanceResponders={pf.ambulanceResponders}
+                receivingFacility={pf.receivingFacility} receivingPersonnel={pf.receivingPersonnel}
+                uploadedPhoto={pf.uploadedPhoto}
+                onChange={onPfChange} onPhotoChange={makePhotoHandler(pi)}
+              />
+            )
+          }
+
           if (reportKind === 'emergency') {
             if (currentStep === 2) return (
               <EmergencyIncidentDetailsStep key={pi}
@@ -1508,10 +1619,10 @@ export default function Zone_Report() {
   }
 
   const TOUR_STEPS: Step[] = [
-    { target: '.zr-heading', placement: 'bottom', skipBeacon: true, title: 'Zone Reports', content: 'This page manages all emergency and incident reports for this specific zone.' },
-    { target: '.zr-btn-create', placement: 'bottom', skipBeacon: true, title: 'Create Report', content: 'Click here to open the multi-step form and submit a new emergency report for this zone.' },
-    { target: '.zr-btn-pdf', placement: 'bottom', skipBeacon: true, title: 'Download Options', content: 'Export the current list of reports as a PDF or Excel file, or download bulk report PDFs as a ZIP.' },
-    { target: '.zr-card', placement: 'top', skipBeacon: true, title: 'Report Cards', content: 'Each card represents one submitted report. Click the eye icon to view the full document, or the edit icon to make corrections.' },
+    { target: '.zr-heading', placement: 'bottom', skipBeacon: true, title: `${zoneName ?? 'Zone'} Reports`, content: `This page lists all emergency reports filed under the ${zoneName ?? 'selected'} zone. It includes both Patient Care Reports (for medical and casualty incidents) and Incident Reports (for fire, accidents, and other events).` },
+    { target: '.zr-btn-create', placement: 'bottom', skipBeacon: true, title: 'Create Emergency Report', content: 'Opens the multi-step report creation form. You will enter the report type, patient or victim details, assessment information, ambulance transfer data if applicable, and upload supporting photos before submitting.' },
+    { target: '.zr-btn-pdf', placement: 'bottom', skipBeacon: true, title: 'Export Options', content: `Export ${zoneName ?? 'this zone'}'s reports. Choose PDF for a printable formatted document, Excel for a spreadsheet, or ZIP to batch-download full PDF documents for all reports in the current filtered list.` },
+    { target: '.zr-card', placement: 'top', skipBeacon: true, title: 'Report Records', content: 'Each row or card is one submitted emergency report. Click the eye icon to open the full formatted document view, or the pencil icon to edit and correct report details.' },
   ]
 
   return (
@@ -1635,7 +1746,11 @@ export default function Zone_Report() {
               <div className="zr-modal-header" onMouseDown={handleModalHeaderMouseDown}>
                 <h5 className="mb-0">
                   <i className="bi bi-clipboard-plus me-2"></i>
-                  Create Emergency Report
+                  {currentStep === 0
+                    ? 'Create Report'
+                    : reportKind === 'incident'
+                      ? 'Create Incident Report'
+                      : 'Create Emergency Report'}
                   <span className="zr-modal-badge">MDRRMO</span>
                 </h5>
 
@@ -1645,11 +1760,13 @@ export default function Zone_Report() {
               </div>
 
               <div className="zr-modal-content-wrap">
-                <div className="zr-modal-stepper-shell">
-                  <div className="zr-modal-stepper">
-                    <ZoneReportStepper steps={steps} currentStep={currentStep} />
+                {currentStep > 0 && (
+                  <div className="zr-modal-stepper-shell">
+                    <div className="zr-modal-stepper">
+                      <ZoneReportStepper steps={steps} currentStep={currentStep} />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="zr-modal-step-shell">
                   <div className="zr-modal-body">{renderStepContent()}</div>
@@ -1662,24 +1779,25 @@ export default function Zone_Report() {
                       type="button"
                       className="btn btn-stepper-prev"
                       onClick={goPrev}
-                      style={{ visibility: currentStep === 1 ? 'hidden' : 'visible' }}
+                      style={{ visibility: currentStep <= 1 ? 'hidden' : 'visible' }}
                     >
                       <i className="bi bi-arrow-left me-1"></i>
                       Previous
                     </button>
                   </div>
 
-                  {currentStep < maxStep ? (
-                    <button type="button" className="btn btn-stepper-next" onClick={goNext} disabled={isSaving}>
-                      Next
-                      <i className="bi bi-arrow-right ms-1"></i>
-                    </button>
-                  ) : (
-                    <button type="button" className="btn btn-stepper-submit" onClick={submitReport} disabled={isSaving}>
-                      <i className="bi bi-check-circle me-1"></i>
-                      {isSaving ? 'Submitting...' : 'Submit Report'}
-                    </button>
-                  )}
+                  {currentStep === 0 ? null :
+                    currentStep < maxStep ? (
+                      <button type="button" className="btn btn-stepper-next" onClick={goNext} disabled={isSaving}>
+                        Next
+                        <i className="bi bi-arrow-right ms-1"></i>
+                      </button>
+                    ) : (
+                      <button type="button" className="btn btn-stepper-submit" onClick={submitReport} disabled={isSaving}>
+                        <i className="bi bi-check-circle me-1"></i>
+                        {isSaving ? 'Submitting...' : 'Submit Report'}
+                      </button>
+                    )}
                 </div>
               </div>
             </div>
@@ -1853,7 +1971,33 @@ export default function Zone_Report() {
               </tr>
             </thead>
             <tbody>
-              {displayedReports.length < 1 ? (
+              {pendingOfflineRows.map((item, idx) => {
+                const offlinePeople = (() => { try { return JSON.parse(item.people) as PersonInfo[] } catch { return [] } })()
+                const offlineForms = (() => { try { return JSON.parse(item.personForms) as PersonFormData[] } catch { return [] } })()
+                const op = offlinePeople[0]
+                const of0 = offlineForms[0]
+                const fullName = op ? [op.firstName, op.middleName, op.lastName].map(s => s.trim()).filter(Boolean).join(' ') : '—'
+                return (
+                  <tr key={`offline-${idx}`} style={{ background: '#fff8e1' }}>
+                    <td data-label="Date">{of0?.incidentDate || '—'}</td>
+                    <td data-label="Client Name">{fullName || '—'}</td>
+                    <td data-label="Age">{op?.age || '—'}</td>
+                    <td data-label="Gender">{op?.gender || '—'}</td>
+                    <td data-label="Type"><span className="zr-type-badge zr-type-emergency">Emergency</span></td>
+                    <td data-label="Location">{op?.incidentLocation || '—'}</td>
+                    <td data-label="Dispatcher">—</td>
+                    <td data-label="Responders">—</td>
+                    <td data-label="Time">{of0?.incidentTime || '—'}</td>
+                    <td data-label="Actions">
+                      <span style={{ fontSize: 12, color: '#856404', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <i className="bi bi-wifi-off" />
+                        Queued offline
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+              {displayedReports.length < 1 && pendingOfflineRows.length < 1 ? (
                 hasLoadedReports ? (
                 <tr>
                   <td colSpan={10} className="zr-empty">
@@ -1861,7 +2005,7 @@ export default function Zone_Report() {
                   </td>
                 </tr>
                 ) : null
-              ) : (
+              ) : displayedReports.length < 1 ? null : (
                 displayedReports.map(report => {
                   const primaryClient = report.clients?.[0]
                   const emergencyDetail = report.emergencyDetails ?? report.emergency_details

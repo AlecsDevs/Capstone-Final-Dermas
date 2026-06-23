@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mdrrmo-report-system-v3';
+const CACHE_NAME = 'mdrrmo-report-system-v4';
 const APP_SHELL_ASSETS = [
   '/',
   '/index.html',

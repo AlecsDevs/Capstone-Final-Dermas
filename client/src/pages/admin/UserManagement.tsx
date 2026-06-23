@@ -552,9 +552,9 @@ export default function UserManagement() {
   }
 
   const TOUR_STEPS: Step[] = [
-    { target: '.um-title', placement: 'bottom', skipBeacon: true, title: 'User Management', content: 'Create and manage staff accounts from here. Only admins can access this page.' },
-    { target: '.um-card', placement: 'top', skipBeacon: true, title: 'Staff Accounts', content: 'Each row is one staff member. You can add new staff, edit their details, reset passwords, or toggle their active status.' },
-    { target: '.um-logs-card', placement: 'top', skipBeacon: true, title: 'Activity Logs', content: 'A full audit trail of all user actions — logins, report submissions, profile changes, and more — is recorded here.' },
+    { target: '.um-title', placement: 'bottom', skipBeacon: true, title: 'User Management', content: 'Admin-only page for managing all MDRRMO Nabua staff accounts. Register new staff members, update account details, reset temporary passwords, and deactivate accounts that are no longer in use.' },
+    { target: '.um-card', placement: 'top', skipBeacon: true, title: 'Staff Accounts Table', content: 'Each row is one registered staff account. The toggle switch activates or deactivates the account. Use the edit icon to update the name, email, or role, and the key icon to issue a new temporary password.' },
+    { target: '.um-logs-card', placement: 'top', skipBeacon: true, title: 'Activity Audit Logs', content: 'A complete audit trail of all system actions — logins, logouts, report submissions, edits, deletions, and profile changes. Use this log to review staff activity or investigate discrepancies in records.' },
   ]
 
   return (

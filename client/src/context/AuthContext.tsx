@@ -6,6 +6,7 @@ import type { User, LoginCredentials } from '../types/auth'
 const TOKEN_KEY = 'token'
 const REMEMBER_TOKEN_KEY = 'remember_token'
 const DEVICE_NAME_KEY = 'device_name'
+const CACHED_USER_KEY = 'cached_user'
 
 const getStoredToken = () => {
   return sessionStorage.getItem(TOKEN_KEY) ?? localStorage.getItem(REMEMBER_TOKEN_KEY)
@@ -48,10 +49,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const token = getStoredToken()
     if (token) {
       api.get('/me')
-        .then(res => setUser(res.data))
-        .catch(() => {
-          clearStoredToken()
-          setUser(null)
+        .then(res => {
+          setUser(res.data)
+          localStorage.setItem(CACHED_USER_KEY, JSON.stringify(res.data))
+        })
+        .catch((err) => {
+          if (err.response) {
+            // Server responded with auth error (401/403) — clear token
+            clearStoredToken()
+            localStorage.removeItem(CACHED_USER_KEY)
+            setUser(null)
+          } else {
+            // Network error (offline) — use cached user to stay logged in
+            const cached = localStorage.getItem(CACHED_USER_KEY)
+            if (cached) {
+              setUser(JSON.parse(cached) as User)
+            } else {
+              clearStoredToken()
+              setUser(null)
+            }
+          }
         })
         .finally(() => setLoading(false))
     } else {
@@ -70,6 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await api.post('/logout')
     } finally {
       clearStoredToken()
+      localStorage.removeItem(CACHED_USER_KEY)
       setUser(null)
       window.location.href = '/login'
     }

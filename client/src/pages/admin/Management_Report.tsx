@@ -342,10 +342,10 @@ export const Management_Report = () => {
   }
 
   const TOUR_STEPS: Step[] = [
-    { target: '.mr-page-title', placement: 'bottom', skipBeacon: true, title: 'Manage Reports', content: 'This page shows all submitted reports from every zone in one place — emergency and incident reports combined.' },
-    { target: '.mr-zones-row', placement: 'bottom', skipBeacon: true, title: 'Zone Filter', content: 'Filter reports by zone — Rail Road, Poblacion, Mountain Area, or River Side — or view all zones at once.' },
-    { target: '.mr-card', placement: 'top', skipBeacon: true, title: 'Search & Filter Panel', content: 'Narrow down reports by date range, report type, or keyword. Use this to quickly find a specific record.' },
-    { target: '.mr-table', placement: 'top', skipBeacon: true, title: 'Report Table', content: 'Each row is one submitted report. Click the view icon to see its full document, or download a PDF copy directly.' },
+    { target: '.mr-page-title', placement: 'bottom', skipBeacon: true, title: 'Manage Reports — All Zones', content: 'A consolidated view of every emergency report submitted across all four MDRRMO Nabua zones. Both Patient Care Reports and Incident Reports appear here in one searchable list.' },
+    { target: '.mr-zones-row', placement: 'bottom', skipBeacon: true, title: 'Filter by Zone', content: 'Click a zone card to narrow the list to that zone only — Rail Road, Poblacion, Mountain Area, or River Side. Click the active zone again or "All Zones" to reset and show all records.' },
+    { target: '.mr-card', placement: 'top', skipBeacon: true, title: 'Search & Filter Panel', content: 'Refine the report list by date range, report type (Patient Care Report or Incident Report), or a keyword such as a patient name or barangay. Combine filters to find a specific record quickly.' },
+    { target: '.mr-table', placement: 'top', skipBeacon: true, title: 'Report Records Table', content: 'Each row is one submitted emergency report showing the zone, report type, date, and involved persons. Click the eye icon to open the full formatted document, or the download icon to export it as a PDF.' },
   ]
 
   return (

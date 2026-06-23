@@ -321,9 +321,9 @@ export default function DocumentsPage() {
   }, [docs, search, sort])
 
   const TOUR_STEPS: Step[] = [
-    { target: '.doc-header', placement: 'bottom', skipBeacon: true, title: 'Documents', content: 'Store and manage official files here — PDFs, Word documents, Excel sheets, and images are all supported.' },
-    { target: '.doc-upload-btn-main', placement: 'bottom', skipBeacon: true, title: 'Upload File', content: 'Click here to upload a new file. You can give it a title and description so it is easy to find later.' },
-    { target: '.doc-grid', placement: 'top', skipBeacon: true, title: 'File Library', content: 'All uploaded files appear here. Click a file to preview or download it. Admins can also delete files from this view.' },
+    { target: '.doc-header', placement: 'bottom', skipBeacon: true, title: 'Documents — File Repository', content: 'A central file storage for MDRRMO Nabua. Keep official documents, response forms, incident advisories, standard operating procedures, and reference materials here so all authorized staff can access them.' },
+    { target: '.doc-upload-btn-main', placement: 'bottom', skipBeacon: true, title: 'Upload a File', content: 'Upload a new document to the repository. Supported formats include PDF, Word documents (.docx), Excel files (.xlsx), and images. Add a title and description to make the file easy to search and identify.' },
+    { target: '.doc-grid', placement: 'top', skipBeacon: true, title: 'File Library', content: 'All uploaded files are displayed here. Click a file card to preview or download it. Admin users can also rename or permanently delete files. Use the search bar above to quickly locate a specific document.' },
   ]
 
   return (
