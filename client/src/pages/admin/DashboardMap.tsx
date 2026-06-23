@@ -99,7 +99,10 @@ function createPinIcon(report: MapReport, isSelected: boolean): L.DivIcon {
 
 
 const NABUA_CENTER: [number, number] = [13.4057, 123.3744]
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '/api'
+const _RAW_API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '')
+const API_BASE = _RAW_API
+  ? (/^https?:\/\/[^/]+$/i.test(_RAW_API) ? `${_RAW_API}/api` : _RAW_API)
+  : '/api'
 
 /* ── Accident Risk ────────────────────────────────────── */
 const RISK_LEVELS = [
