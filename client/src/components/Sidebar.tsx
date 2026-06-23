@@ -111,6 +111,9 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
       <Link to="/admin/trash" className={isActive("/admin/trash")} onClick={handleLinkClick}>
         <i className="bi bi-trash"></i> Trash
       </Link>
+      <Link to="/admin/about" className={isActive("/admin/about")} onClick={handleLinkClick}>
+        <i className="bi bi-info-circle"></i> About
+      </Link>
     </>
   );
 
@@ -173,6 +176,9 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
       <Link to="/staff/trash" className={isActive("/staff/trash")} onClick={handleLinkClick}>
         <i className="bi bi-trash"></i> Trash
       </Link>
+      <Link to="/staff/about" className={isActive("/staff/about")} onClick={handleLinkClick}>
+        <i className="bi bi-info-circle"></i> About
+      </Link>
     </>
   );
 
@@ -199,13 +205,6 @@ export const Sidebar = ({ isOpen = false, onClose, role = 'admin' }: SidebarProp
         </nav>
 
         <div className="sidebar-footer w-100">
-          <Link
-            to={`/${role}/about`}
-            className={isActive(`/${role}/about`)}
-            onClick={handleLinkClick}
-          >
-            <i className="bi bi-info-circle"></i> About
-          </Link>
           <button onClick={() => setShowModal(true)}>
             <i className="bi bi-box-arrow-right"></i> Logout
           </button>

@@ -24,7 +24,7 @@ function Field({
 }: { label: string; children: React.ReactNode; error?: string }) {
   return (
     <div>
-      <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>
+      <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600 }}>
         {label}
       </label>
       {children}
@@ -138,7 +138,7 @@ export function EmergencyIncidentDetailsStep({
       {/* OB Section */}
       {isOB && (
         <div className="mt-3 p-3 rounded-2 zr-form-body">
-          <div className="fw-semibold mb-2 d-flex align-items-center gap-1" style={{ fontSize: 13, color: '#212529' }}>
+          <div className="fw-semibold mb-2 d-flex align-items-center gap-1" style={{ fontSize: 13, color: 'inherit' }}>
             <i className="bi bi-clipboard2-heart" /> Obstetrics Data
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -164,7 +164,7 @@ export function EmergencyIncidentDetailsStep({
                   {row.map(({ key, label, val, type }) => (
                     <td key={key} style={{ border: '1px solid #dee2e6', padding: '4px 8px', width: '33.3%' }}>
                       <div className="d-flex align-items-center gap-1">
-                        <span style={{ fontWeight: 700, fontSize: 12, color: '#495057', whiteSpace: 'nowrap', minWidth: 30 }}>{label}:</span>
+                        <span style={{ fontWeight: 700, fontSize: 12, color: 'inherit', whiteSpace: 'nowrap', minWidth: 30 }}>{label}:</span>
                         <input
                           type={type}
                           min={type === 'number' ? 0 : undefined}

@@ -1695,7 +1695,7 @@ export const Dashboard = () => {
                                                 <i className={`bi ${HAZARD_ICONS[hazard]}`} style={{ color: HAZARD_COLORS[hazard], fontSize: 14 }} />
                                             </div>
                                             <div style={{ minWidth: 0, flex: 1 }}>
-                                                <div style={{ fontSize: 8.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.3, lineHeight: 1.2, wordBreak: 'break-word' }}>{hazard}</div>
+                                                <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hazard}</div>
                                                 <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.1, color: count ? HAZARD_COLORS[hazard] : '#d1d5db' }}>
                                                     {count ?? '—'}
                                                 </div>

@@ -18,7 +18,7 @@ interface AmbulanceTransferStepProps {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>
+    <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600 }}>
       {children}
     </label>
   )

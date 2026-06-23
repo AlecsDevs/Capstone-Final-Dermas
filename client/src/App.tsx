@@ -9,7 +9,6 @@ import { AppLoadingScreen } from './components/AppLoadingScreen'
 const SplashPage        = lazy(() => import('./pages/SplashPage.tsx'))
 const LoginPage         = lazy(() => import('./pages/LoginPage.tsx'))
 const Dashboard         = lazy(() => import('./pages/admin/Dashboard').then(m => ({ default: m.Dashboard })))
-const StaffDashboard    = lazy(() => import('./pages/staff/StaffDashboard'))
 const Management_Report = lazy(() => import('./pages/admin/Management_Report.tsx'))
 const Zone_Report       = lazy(() => import('./pages/admin/Zone_Report.tsx'))
 const UserManagement    = lazy(() => import('./pages/admin/UserManagement.tsx'))
@@ -50,7 +49,7 @@ function App() {
           <Route element={<ProtectedRoute allowedRoles={['staff']} />}>
             <Route path='/staff' element={<AppLayout />}>
               <Route index element={<Navigate to='dashboard' replace />} />
-              <Route path='dashboard' element={<StaffDashboard />} />
+              <Route path='dashboard' element={<Dashboard />} />
               {sharedRoutes.map(r => <Route key={r.path} path={r.path} element={r.element} />)}
               <Route path='reports' element={<Navigate to='/staff/zonal-reports' replace />} />
             </Route>

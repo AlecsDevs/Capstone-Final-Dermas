@@ -88,7 +88,12 @@ html.dark .layout {
   padding-top: 1rem;
   flex-grow: 1;
   min-height: 0;   /* lets flex child scroll instead of overflow */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
+
+.sidebar nav::-webkit-scrollbar { width: 3px; }
+.sidebar nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 3px; }
 
 .sidebar nav a {
   display: flex;

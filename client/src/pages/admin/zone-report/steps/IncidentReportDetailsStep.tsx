@@ -53,7 +53,7 @@ export function IncidentReportDetailsStep({
       {/* Hazard + Severity */}
       <div className="row g-3 mb-3">
         <div className="col-12 col-md-6">
-          <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>
+          <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600 }}>
             Type of Hazard <span className="text-danger">*</span>
           </label>
           <select
@@ -68,7 +68,7 @@ export function IncidentReportDetailsStep({
         </div>
 
         <div className="col-12 col-md-6">
-          <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>
+          <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600 }}>
             Severity Level <span className="text-danger">*</span>
           </label>
           <div className="d-flex gap-2 flex-wrap">
@@ -108,7 +108,7 @@ export function IncidentReportDetailsStep({
 
       {/* Barangay */}
       <div className="mb-3">
-        <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>
+        <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600 }}>
           Barangay / Location of Disaster <span className="text-danger">*</span>
         </label>
         <BarangayAutocomplete
@@ -124,7 +124,7 @@ export function IncidentReportDetailsStep({
       {/* Date + Time */}
       <div className="row g-3">
         <div className="col-12 col-sm-6">
-          <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>
+          <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600 }}>
             Date of Incident <span className="text-danger">*</span>
           </label>
           <input
@@ -136,7 +136,7 @@ export function IncidentReportDetailsStep({
           {errors.incidentDate && <div className="invalid-feedback">{errors.incidentDate}</div>}
         </div>
         <div className="col-12 col-sm-6">
-          <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>
+          <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600 }}>
             Time of Incident <span className="text-danger">*</span>
           </label>
           <input

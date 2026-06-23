@@ -259,18 +259,7 @@ export function PatientCareReportView({
               </DC>
             </tr>
 
-            {data.accidentType && (
-              <tr>
-                <td style={th} colSpan={6}>TYPE OF ACCIDENT / EMERGENCY</td>
-              </tr>
-            )}
-            {data.accidentType && (
-              <tr>
-                <DC colSpan={6}>
-                  <span style={{ fontWeight: 700, fontSize: 10 }}>{data.accidentType}</span>
-                </DC>
-              </tr>
-            )}
+
             <tr>
               <td style={th} colSpan={3}>PERMANENT ADDRESS</td>
               <td style={th} colSpan={2}>CONTACT NUMBER</td>

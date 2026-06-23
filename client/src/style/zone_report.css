@@ -2190,12 +2190,100 @@ html.dark .zr-empty,
   color: #94a3b8 !important;
 }
 
-html.dark .zr-modal-panel {
+html.dark .zr-modal-panel,
+.dark-mode .zr-modal-panel {
   background: #1f2937;
 }
 
-.dark-mode .zr-modal-panel {
-  background: #1f2937;
+/* ── All inputs/selects inside the report modal ── */
+html.dark .zr-modal-panel input,
+html.dark .zr-modal-panel select,
+html.dark .zr-modal-panel textarea,
+html.dark .zr-modal-panel .form-control,
+html.dark .zr-modal-panel .form-select,
+.dark-mode .zr-modal-panel input,
+.dark-mode .zr-modal-panel select,
+.dark-mode .zr-modal-panel textarea,
+.dark-mode .zr-modal-panel .form-control,
+.dark-mode .zr-modal-panel .form-select {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark .zr-modal-panel input::placeholder,
+html.dark .zr-modal-panel textarea::placeholder,
+.dark-mode .zr-modal-panel input::placeholder,
+.dark-mode .zr-modal-panel textarea::placeholder {
+  color: #64748b !important;
+}
+
+html.dark .zr-modal-panel select option,
+.dark-mode .zr-modal-panel select option {
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
+html.dark .zr-modal-panel input:focus,
+html.dark .zr-modal-panel select:focus,
+html.dark .zr-modal-panel textarea:focus,
+html.dark .zr-modal-panel .form-control:focus,
+html.dark .zr-modal-panel .form-select:focus,
+.dark-mode .zr-modal-panel input:focus,
+.dark-mode .zr-modal-panel select:focus,
+.dark-mode .zr-modal-panel textarea:focus,
+.dark-mode .zr-modal-panel .form-control:focus,
+.dark-mode .zr-modal-panel .form-select:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 0.2rem rgba(56, 189, 248, 0.18) !important;
+}
+
+/* Containers inside modal */
+html.dark .zr-modal-step-shell,
+html.dark .zr-modal-body,
+html.dark .zr-form-body,
+html.dark .zr-person-card-wrap,
+.dark-mode .zr-modal-step-shell,
+.dark-mode .zr-modal-body,
+.dark-mode .zr-form-body,
+.dark-mode .zr-person-card-wrap {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* All text inside the modal body must be light — !important overrides inline styles */
+html.dark .zr-modal-body h1, html.dark .zr-modal-body h2,
+html.dark .zr-modal-body h3, html.dark .zr-modal-body h4,
+html.dark .zr-modal-body h5, html.dark .zr-modal-body h6,
+html.dark .zr-modal-body p, html.dark .zr-modal-body label,
+html.dark .zr-modal-body .form-label, html.dark .zr-modal-body strong,
+html.dark .zr-modal-body small,
+.dark-mode .zr-modal-body h1, .dark-mode .zr-modal-body h2,
+.dark-mode .zr-modal-body h3, .dark-mode .zr-modal-body h4,
+.dark-mode .zr-modal-body h5, .dark-mode .zr-modal-body h6,
+.dark-mode .zr-modal-body p, .dark-mode .zr-modal-body label,
+.dark-mode .zr-modal-body .form-label, .dark-mode .zr-modal-body strong,
+.dark-mode .zr-modal-body small {
+  color: #e2e8f0 !important;
+}
+
+/* Spans with hardcoded dark inline colors */
+html.dark .zr-modal-body span,
+.dark-mode .zr-modal-body span {
+  color: #e2e8f0 !important;
+}
+
+html.dark .zr-modal-body .text-muted,
+html.dark .zr-modal-body p.text-muted,
+.dark-mode .zr-modal-body .text-muted,
+.dark-mode .zr-modal-body p.text-muted {
+  color: #94a3b8 !important;
+}
+
+/* Keep colored icons their original color */
+html.dark .zr-modal-body i[class*="text-"],
+.dark-mode .zr-modal-body i[class*="text-"] {
+  color: inherit !important;
 }
 
 html.dark .zr-modal-stepper-shell,
@@ -2353,14 +2441,93 @@ html.dark .zr-mini-input::placeholder {
   color: #94a3b8;
 }
 
-html.dark .zr-person-card-head {
+/* All regular inputs inside step/form body cards */
+html.dark .step-card-body .form-control,
+html.dark .step-card-body .form-select,
+html.dark .step-card-body input,
+html.dark .step-card-body select,
+html.dark .step-card-body textarea,
+html.dark .zr-form-body .form-control,
+html.dark .zr-form-body .form-select,
+html.dark .zr-form-body input,
+html.dark .zr-form-body select,
+html.dark .zr-form-body textarea,
+.dark-mode .step-card-body .form-control,
+.dark-mode .step-card-body .form-select,
+.dark-mode .step-card-body input,
+.dark-mode .step-card-body select,
+.dark-mode .step-card-body textarea,
+.dark-mode .zr-form-body .form-control,
+.dark-mode .zr-form-body .form-select,
+.dark-mode .zr-form-body input,
+.dark-mode .zr-form-body select,
+.dark-mode .zr-form-body textarea {
+  background: #263347 !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+html.dark .step-card-body .form-control::placeholder,
+html.dark .step-card-body input::placeholder,
+html.dark .step-card-body textarea::placeholder,
+html.dark .zr-form-body .form-control::placeholder,
+html.dark .zr-form-body input::placeholder,
+html.dark .zr-form-body textarea::placeholder,
+.dark-mode .step-card-body .form-control::placeholder,
+.dark-mode .step-card-body input::placeholder,
+.dark-mode .step-card-body textarea::placeholder,
+.dark-mode .zr-form-body .form-control::placeholder,
+.dark-mode .zr-form-body input::placeholder,
+.dark-mode .zr-form-body textarea::placeholder {
+  color: #64748b !important;
+}
+
+html.dark .step-card-body .form-control:focus,
+html.dark .step-card-body input:focus,
+html.dark .step-card-body select:focus,
+html.dark .step-card-body textarea:focus,
+html.dark .zr-form-body .form-control:focus,
+html.dark .zr-form-body input:focus,
+html.dark .zr-form-body select:focus,
+html.dark .zr-form-body textarea:focus,
+.dark-mode .step-card-body .form-control:focus,
+.dark-mode .step-card-body input:focus,
+.dark-mode .step-card-body select:focus,
+.dark-mode .step-card-body textarea:focus,
+.dark-mode .zr-form-body .form-control:focus,
+.dark-mode .zr-form-body input:focus,
+.dark-mode .zr-form-body select:focus,
+.dark-mode .zr-form-body textarea:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.18) !important;
+}
+
+html.dark .zr-person-card-head,
+.dark-mode .zr-person-card-head {
   background: #1f2937;
   border-bottom-color: #334155;
 }
 
-.dark-mode .zr-person-card-head {
-  background: #1f2937;
-  border-bottom-color: #334155;
+html.dark .zr-form-body,
+.dark-mode .zr-form-body {
+  background: #1e293b;
+}
+
+html.dark .zr-person-card-wrap,
+.dark-mode .zr-person-card-wrap {
+  background: #1e293b;
+  border-color: #334155 !important;
+}
+
+html.dark .zr-person-card-hd,
+.dark-mode .zr-person-card-hd {
+  background: #1f2937 !important;
+  border-color: #334155 !important;
+}
+
+html.dark .zr-acc-chip,
+.dark-mode .zr-acc-chip {
+  background: transparent;
 }
 
 html.dark .zr-remove-person-btn {

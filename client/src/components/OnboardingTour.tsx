@@ -108,6 +108,16 @@ export function OnboardingTour({ onStart, onSwitchTab }: OnboardingTourProps) {
     return () => obs.disconnect()
   }, [])
 
+  // First-time login — auto-start tour if never seen before
+  useEffect(() => {
+    if (!localStorage.getItem('dermas:onboarded')) {
+      onStart?.()
+      const t = setTimeout(() => setRun(true), 800)
+      return () => clearTimeout(t)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ?guide=1 from About page — auto-start tour
   useEffect(() => {
     if (searchParams.get('guide') === '1') {
@@ -134,6 +144,7 @@ export function OnboardingTour({ onStart, onSwitchTab }: OnboardingTourProps) {
     const { status, type, index } = data as EventData & { index: number }
     if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
       setRun(false)
+      localStorage.setItem('dermas:onboarded', '1')
     }
     if (type === 'step:before' && index === DISASTER_STEP_INDEX) {
       onSwitchTab?.('disaster')

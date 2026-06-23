@@ -36,6 +36,17 @@ class SecurityHeaders
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
         }
 
+        // Content Security Policy
+        $response->headers->set('Content-Security-Policy',
+            "default-src 'self'; " .
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " .
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " .
+            "font-src 'self' https://fonts.gstatic.com data:; " .
+            "img-src 'self' data: blob: https:; " .
+            "connect-src 'self' https://api.open-meteo.com https://earthquake.usgs.gov https://nominatim.openstreetmap.org; " .
+            "frame-ancestors 'none';"
+        );
+
         // Strip server identification headers
         $response->headers->remove('X-Powered-By');
         $response->headers->set('X-Powered-By', '');

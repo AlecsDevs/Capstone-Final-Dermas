@@ -26,7 +26,7 @@ function AccidentTypeField({
   const meta = getAccidentMeta(value)
   return (
     <div>
-      <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>
+      <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600 }}>
         Accident / Emergency Type
       </label>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -61,7 +61,7 @@ function AccidentTypeField({
 
 function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
-    <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>
+    <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600 }}>
       {children}
       {required && <span className="text-danger ms-1">*</span>}
     </label>

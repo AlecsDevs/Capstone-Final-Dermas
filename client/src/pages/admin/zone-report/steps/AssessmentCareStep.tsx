@@ -27,7 +27,7 @@ function AssessRow({
 
   return (
     <div>
-      <label className="form-label mb-1" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: '#495057' }}>
+      <label className="form-label mb-1" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
         {label}
       </label>
       {showManual ? (
@@ -126,7 +126,7 @@ export function AssessmentCareStep({
 
       {/* Chief Complaint */}
       <div className="mb-3">
-        <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>
+        <label className="form-label mb-1" style={{ fontSize: 12, fontWeight: 600 }}>
           Chief Complaint
         </label>
         <textarea
@@ -141,7 +141,7 @@ export function AssessmentCareStep({
 
       {/* Client Assessment */}
       <div className="mb-3 p-3 rounded-2 zr-assess-box">
-        <div className="d-flex align-items-center gap-1 mb-2" style={{ fontSize: 13, fontWeight: 600, color: '#212529' }}>
+        <div className="d-flex align-items-center gap-1 mb-2" style={{ fontSize: 13, fontWeight: 600 }}>
           <i className="bi bi-clipboard2-pulse text-primary" /> Client Assessment
         </div>
         <div className="row g-2">
@@ -169,7 +169,7 @@ export function AssessmentCareStep({
       {/* Vital Signs */}
       <div className="mb-3">
         <div className="d-flex align-items-center justify-content-between mb-2">
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#212529' }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>
             <i className="bi bi-activity text-danger me-1" /> Vital Signs
           </span>
           <button type="button" className="btn btn-sm btn-outline-primary py-0 px-2" style={{ fontSize: 12 }} onClick={onAddVitalSign}>
@@ -222,7 +222,7 @@ export function AssessmentCareStep({
       {/* Glasgow Coma Scale */}
       <div className="mb-3">
         <div className="d-flex align-items-center justify-content-between mb-2">
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#212529' }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>
             <i className="bi bi-diagram-3 text-primary me-1" /> Glasgow Coma Scale
           </span>
           <button type="button" className="btn btn-sm btn-outline-primary py-0 px-2" style={{ fontSize: 12 }} onClick={onAddGlasgow}>
@@ -286,7 +286,7 @@ export function AssessmentCareStep({
       {/* OB Section */}
       {isOB && (
         <div className="p-3 rounded-2 zr-form-body">
-          <div className="fw-semibold mb-2 d-flex align-items-center gap-1" style={{ fontSize: 13, color: '#212529' }}>
+          <div className="fw-semibold mb-2 d-flex align-items-center gap-1" style={{ fontSize: 13 }}>
             <i className="bi bi-clipboard2-heart" /> Obstetrics Data
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -312,7 +312,7 @@ export function AssessmentCareStep({
                   {row.map(({ key, label, val, type }) => (
                     <td key={key} style={{ border: '1px solid #dee2e6', padding: '4px 8px', width: '33.3%' }}>
                       <div className="d-flex align-items-center gap-1">
-                        <span style={{ fontWeight: 700, fontSize: 12, color: '#495057', whiteSpace: 'nowrap', minWidth: 30 }}>{label}:</span>
+                        <span style={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', minWidth: 30 }}>{label}:</span>
                         <input
                           type={type}
                           min={type === 'number' ? 0 : undefined}

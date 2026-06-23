@@ -101,6 +101,33 @@ html.dark .btn-close {
 	filter: invert(1) grayscale(100%);
 }
 
+/* ── Unified dark mode search bars ─────────────────────── */
+html.dark .um-search-wrap,
+html.dark .doc-search-wrap,
+html.dark .zr-search-wrap {
+	background: #1e293b !important;
+	border-color: #334155 !important;
+}
+
+html.dark .um-search-wrap input,
+html.dark .doc-search-wrap input,
+html.dark .zr-search-input {
+	background: transparent !important;
+	color: #e2e8f0 !important;
+}
+
+html.dark .um-search-wrap input::placeholder,
+html.dark .doc-search-wrap input::placeholder,
+html.dark .zr-search-input::placeholder {
+	color: #64748b !important;
+}
+
+html.dark .um-search-wrap i,
+html.dark .doc-search-wrap i,
+html.dark .zr-search-icon {
+	color: #64748b !important;
+}
+
 .pwa-install-banner {
 	position: fixed;
 	left: 10px;
