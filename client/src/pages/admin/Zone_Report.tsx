@@ -1097,7 +1097,7 @@ export default function Zone_Report() {
         if (!fullName || !person.gender) continue
 
         const reportRes = await api.post('/reports', {
-          report_type: reportKind === 'incident' ? 'Incident' : 'Emergency',
+          report_type: 'Emergency',
           geographic_type_id: geographicTypeId,
           date_reported: pf.incidentDate || fallbackDate,
           time_reported: toHHMM(pf.incidentTime) || fallbackTime,
@@ -1120,49 +1120,36 @@ export default function Zone_Report() {
           }],
         })
 
-        if (reportKind === 'incident') {
-          await api.put(`/reports/${id}/incident-details`, {
-            type_of_incident: pf.typeOfHazard || null,
-            type_of_hazard: pf.typeOfHazard || null,
-            severity_level: pf.severityLevel || null,
-            incident_barangay: pf.incidentBarangay || null,
-            incident_date: pf.incidentDate,
-            incident_time: toHHMM(pf.incidentTime),
-          })
-        }
-
-        if (reportKind === 'emergency') {
-          await api.put(`/reports/${id}/emergency-details`, {
-            mechanism_of_injury: pf.mechanism || null,
-            nature_of_illness: pf.natureIllness || null,
-            type_of_emergency: pf.typeEmergency || null,
-            nature_of_call: pf.natureOfCall || null,
-            incident_date: pf.incidentDate,
-            incident_time: toHHMM(pf.incidentTime),
-          })
-          await api.put(`/reports/${id}/assessment`, {
-            chief_complaint: pf.chiefComplaint || null,
-            loc: pf.loc || null,
-            airway: pf.airway || null,
-            breathing: pf.breathing || null,
-            circulation: pf.circulation || null,
-            capillary_refill: pf.capillaryRefill || null,
-            pupils: pf.pupils || null,
-            vital_signs: pf.vitalSigns.filter(vs => vs.bp || vs.rr || vs.pr || vs.temp || vs.spo2),
-            glasgow_scores: pf.glasgowScores.filter(g => g.eye || g.verbal || g.motor).map(g => ({
-              eye: g.eye ? Number(g.eye) : null,
-              verbal: g.verbal ? Number(g.verbal) : null,
-              motor: g.motor ? Number(g.motor) : null,
-            })),
-            ob_lmp: pf.obLmp || null, ob_aog: pf.obAog || null, ob_edd: pf.obEdd || null,
-            ob_gravida: pf.obGravida ? Number(pf.obGravida) : null,
-            ob_para: pf.obPara ? Number(pf.obPara) : null,
-            ob_term: pf.obTerm ? Number(pf.obTerm) : null,
-            ob_preterm: pf.obPreterm ? Number(pf.obPreterm) : null,
-            ob_abortion: pf.obAbortion ? Number(pf.obAbortion) : null,
-            ob_living: pf.obLiving ? Number(pf.obLiving) : null,
-          })
-        }
+        await api.put(`/reports/${id}/emergency-details`, {
+          mechanism_of_injury: pf.mechanism || null,
+          nature_of_illness: pf.natureIllness || null,
+          type_of_emergency: pf.typeEmergency || null,
+          nature_of_call: pf.natureOfCall || null,
+          incident_date: pf.incidentDate,
+          incident_time: toHHMM(pf.incidentTime),
+        })
+        await api.put(`/reports/${id}/assessment`, {
+          chief_complaint: pf.chiefComplaint || null,
+          loc: pf.loc || null,
+          airway: pf.airway || null,
+          breathing: pf.breathing || null,
+          circulation: pf.circulation || null,
+          capillary_refill: pf.capillaryRefill || null,
+          pupils: pf.pupils || null,
+          vital_signs: pf.vitalSigns.filter(vs => vs.bp || vs.rr || vs.pr || vs.temp || vs.spo2),
+          glasgow_scores: pf.glasgowScores.filter(g => g.eye || g.verbal || g.motor).map(g => ({
+            eye: g.eye ? Number(g.eye) : null,
+            verbal: g.verbal ? Number(g.verbal) : null,
+            motor: g.motor ? Number(g.motor) : null,
+          })),
+          ob_lmp: pf.obLmp || null, ob_aog: pf.obAog || null, ob_edd: pf.obEdd || null,
+          ob_gravida: pf.obGravida ? Number(pf.obGravida) : null,
+          ob_para: pf.obPara ? Number(pf.obPara) : null,
+          ob_term: pf.obTerm ? Number(pf.obTerm) : null,
+          ob_preterm: pf.obPreterm ? Number(pf.obPreterm) : null,
+          ob_abortion: pf.obAbortion ? Number(pf.obAbortion) : null,
+          ob_living: pf.obLiving ? Number(pf.obLiving) : null,
+        })
 
         const photoFile = uploadedPhotoFiles[i] ?? (pf.uploadedPhoto ? dataUrlToFile(pf.uploadedPhoto, `report-${id}-photo`) : null)
         if (photoFile) {
