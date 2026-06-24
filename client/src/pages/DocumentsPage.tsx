@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import api from '../api/axios'
 import '../style/documents.css'
+import '../style/user-management.css'
 import { ModalConfirm } from '../components/modals'
 import { PageTour } from '../components/PageTour'
 import type { Step } from 'react-joyride'

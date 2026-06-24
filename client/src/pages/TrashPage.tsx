@@ -3,6 +3,7 @@ import api from '../api/axios'
 import { useAuth } from '../context/AuthContext'
 import { ModalConfirm } from '../components/modals'
 import '../style/documents.css'
+import '../style/user-management.css'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type TrashTab = 'documents' | 'reports'
