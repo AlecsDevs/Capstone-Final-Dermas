@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import api from '../api/axios'
 import '../style/documents.css'
+import { ModalConfirm } from '../components/modals'
 import { PageTour } from '../components/PageTour'
 import type { Step } from 'react-joyride'
 
@@ -284,6 +285,7 @@ export default function DocumentsPage() {
   const [showUpload, setShowUpload] = useState(false)
   const [preview, setPreview]   = useState<ApiDocument | null>(null)
   const [error, setError]       = useState('')
+  const [confirmDelete, setConfirmDelete] = useState<ApiDocument | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -296,7 +298,6 @@ export default function DocumentsPage() {
   const handleUploaded = (doc: ApiDocument) => setDocs(prev => [doc, ...prev])
 
   const handleDelete = async (doc: ApiDocument) => {
-    if (!window.confirm(`Move "${doc.title?.trim() || doc.original_name}" to Trash?\n\nIt will be permanently deleted after 30 days.`)) return
     const prevDocs = docs
     setDocs(d => d.filter(x => x.id !== doc.id))
     try { await api.delete(`/documents/${doc.id}`) }
@@ -412,7 +413,7 @@ export default function DocumentsPage() {
                     <i className="bi bi-download" />
                   </a>
                   <button type="button" className="doc-act-btn doc-act-delete"
-                    onClick={() => void handleDelete(doc)} title="Move to Trash">
+                    onClick={() => setConfirmDelete(doc)} title="Move to Trash">
                     <i className="bi bi-trash" />
                   </button>
                 </div>
@@ -428,6 +429,17 @@ export default function DocumentsPage() {
       {preview && (
         <PreviewModal doc={preview} onClose={() => setPreview(null)} />
       )}
+
+      <ModalConfirm
+        isOpen={!!confirmDelete}
+        title="Move to Trash"
+        message={`Move "${confirmDelete?.title?.trim() || confirmDelete?.original_name}" to Trash? It will be permanently deleted after 30 days.`}
+        icon="bi-trash"
+        confirmText="Move to Trash"
+        isDanger
+        onConfirm={() => { if (confirmDelete) void handleDelete(confirmDelete); setConfirmDelete(null) }}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   )
 }

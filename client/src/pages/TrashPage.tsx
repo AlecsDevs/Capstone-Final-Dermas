@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../api/axios'
 import { useAuth } from '../context/AuthContext'
+import { ModalConfirm } from '../components/modals'
 import '../style/documents.css'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -75,6 +76,8 @@ export default function TrashPage() {
   const [docsLoading, setDocsLoading] = useState(true)
   const [reportsLoading, setReportsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [confirmDoc, setConfirmDoc] = useState<TrashedDoc | null>(null)
+  const [confirmReport, setConfirmReport] = useState<TrashedReport | null>(null)
 
   useEffect(() => {
     api.get<TrashedDoc[]>('/documents/trash')
@@ -95,7 +98,6 @@ export default function TrashPage() {
   }
 
   const handleForceDeleteDoc = async (doc: TrashedDoc) => {
-    if (!window.confirm(`Permanently delete "${doc.title?.trim() || doc.original_name}"?\nThis cannot be undone.`)) return
     setDocs(prev => prev.filter(d => d.id !== doc.id))
     try { await api.delete(`/documents/${doc.id}/force`) }
     catch { setDocs(prev => [doc, ...prev]); setError('Failed to permanently delete document.') }
@@ -108,7 +110,6 @@ export default function TrashPage() {
   }
 
   const handleForceDeleteReport = async (report: TrashedReport) => {
-    if (!window.confirm('Permanently delete this report?\nThis cannot be undone.')) return
     setReports(prev => prev.filter(r => r.id !== report.id))
     try { await api.delete(`/reports/${report.id}/force`) }
     catch { setReports(prev => [report, ...prev]); setError('Failed to permanently delete report.') }
@@ -196,7 +197,7 @@ export default function TrashPage() {
                     </button>
                     {isAdmin && (
                       <button type="button" className="doc-act-btn doc-act-delete"
-                        onClick={() => void handleForceDeleteDoc(doc)} title="Delete Permanently">
+                        onClick={() => setConfirmDoc(doc)} title="Delete Permanently">
                         <i className="bi bi-trash3-fill" />
                       </button>
                     )}
@@ -255,7 +256,7 @@ export default function TrashPage() {
                       <button
                         type="button"
                         className="btn btn-sm btn-outline-danger"
-                        onClick={() => void handleForceDeleteReport(report)}
+                        onClick={() => setConfirmReport(report)}
                         title="Delete Permanently"
                       >
                         <i className="bi bi-trash3-fill me-1" />Delete
@@ -274,6 +275,28 @@ export default function TrashPage() {
           <div className="spinner-border text-secondary" />
         </div>
       )}
+
+      <ModalConfirm
+        isOpen={!!confirmDoc}
+        title="Delete Permanently"
+        message={`Permanently delete "${confirmDoc?.title?.trim() || confirmDoc?.original_name}"? This cannot be undone.`}
+        icon="bi-trash3-fill"
+        confirmText="Delete"
+        isDanger
+        onConfirm={() => { if (confirmDoc) void handleForceDeleteDoc(confirmDoc); setConfirmDoc(null) }}
+        onCancel={() => setConfirmDoc(null)}
+      />
+
+      <ModalConfirm
+        isOpen={!!confirmReport}
+        title="Delete Permanently"
+        message="Permanently delete this report? This cannot be undone."
+        icon="bi-trash3-fill"
+        confirmText="Delete"
+        isDanger
+        onConfirm={() => { if (confirmReport) void handleForceDeleteReport(confirmReport); setConfirmReport(null) }}
+        onCancel={() => setConfirmReport(null)}
+      />
     </div>
   )
 }

@@ -122,6 +122,7 @@ export default function UserManagement() {
   const [showLogoutDevicesPrompt, setShowLogoutDevicesPrompt] = useState(false)
   const [pendingLogoutUser, setPendingLogoutUser] = useState<UserRow | null>(null)
   const [logoutPromptMode, setLogoutPromptMode] = useState<'profile' | 'password'>('profile')
+  const [confirmDeleteUser, setConfirmDeleteUser] = useState<UserRow | null>(null)
   const [logoutPromptLoading, setLogoutPromptLoading] = useState(false)
   const [showReloginNotice, setShowReloginNotice] = useState(false)
   const [reloginEmail, setReloginEmail] = useState('')
@@ -490,8 +491,6 @@ export default function UserManagement() {
 
   const handleDeleteUser = async (user: UserRow) => {
     if (user.role === 'admin') return
-    const confirmed = window.confirm(`Delete ${user.username}? This action cannot be undone.`)
-    if (!confirmed) return
 
     const previousUsers = users
     const previousLogs = userLogs
@@ -1115,7 +1114,7 @@ export default function UserManagement() {
                     )}
 
                     {selectedActionUser.role !== 'admin' && (
-                      <button type="button" className="um-mini-action um-mini-action-danger" onClick={() => void handleDeleteUser(selectedActionUser)}>
+                      <button type="button" className="um-mini-action um-mini-action-danger" onClick={() => setConfirmDeleteUser(selectedActionUser)}>
                         <i className="bi bi-trash" />
                         <span>Delete Account</span>
                       </button>
@@ -1255,6 +1254,17 @@ export default function UserManagement() {
           onClose={() => setStatusModalMessage('')}
         />
       )}
+
+      <ModalConfirm
+        isOpen={!!confirmDeleteUser}
+        title="Delete Account"
+        message={`Delete ${confirmDeleteUser?.username}? This action cannot be undone.`}
+        icon="bi-trash"
+        confirmText="Delete"
+        isDanger
+        onConfirm={() => { if (confirmDeleteUser) void handleDeleteUser(confirmDeleteUser); setConfirmDeleteUser(null) }}
+        onCancel={() => setConfirmDeleteUser(null)}
+      />
 
       {showLogoutDevicesPrompt && pendingLogoutUser && (
         <ModalConfirm
