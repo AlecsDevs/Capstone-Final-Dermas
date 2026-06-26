@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { OfflineBanner } from './OfflineBanner'
 import { ContextMenu } from './ContextMenu'
+import { AiAssistantPanel } from './AiAssistantPanel'
 import '../style/sidebar.css'
 import { useSessionWatch } from '../hooks/useSessionWatch'
 
@@ -75,6 +76,7 @@ export const AppLayout = () => {
 
       <OfflineBanner />
       <ContextMenu />
+      <AiAssistantPanel />
     </div>
   )
 }

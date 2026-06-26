@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\AiController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\NotificationController;
@@ -71,6 +72,10 @@ Route::middleware(['auth:sanctum', 'device.bound'])->group(function () {
         );
         return response()->json(['message' => 'Daily emergency report notification sent.']);
     });
+
+    // AI assistant proxy routes — forward requests to the Python FastAPI service
+    Route::post('/ai/extract', [AiController::class, 'extract']);
+    Route::post('/ai/chat',    [AiController::class, 'chat']);
 
     // Droplet disk storage info (admin only — reads server disk via PHP built-ins)
     Route::get('/system/storage', function () {
